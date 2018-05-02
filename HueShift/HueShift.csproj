@@ -9,5 +9,6 @@
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="11.0.2"/>
     <PackageReference Include="SolarCalculator" Version="2.0.2"/>
+    <PackageReference Include="Q42.HueApi" Version="3.6.3"/>
   </ItemGroup>
 </Project>

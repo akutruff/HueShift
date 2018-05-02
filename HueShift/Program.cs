@@ -10,6 +10,7 @@ using System.Dynamic;
 using Newtonsoft.Json.Linq;
 using System.Threading;
 using Innovative.SolarCalculator;
+using Q42.HueApi;
 
 namespace HueShift
 {
@@ -19,133 +20,111 @@ namespace HueShift
         Red = 454,
     }
 
-    public class Configuration
-    {
-        public TimeSpan TransitionTimeSpan = TimeSpan.FromSeconds(3);
-        public TimeSpan PollingFrequency = TimeSpan.FromSeconds(10);
-        public int DayColorTemperature = (int)ColorTemperature.Blue;
-        public int NightColorTemperature = (int)ColorTemperature.Red;
-
-        public string BridgeUri = "http://hue.2k.lan/api/";
-        public string BridgeApiKey = "FWPwy-Xj2Ww7RSt1SaXrkRdhBc6M79IIKco2WouT";
-
-        public string IpStackUri = "http://api.ipstack.com/check?access_key=";
-        public string IpStackApiKey = "35c43096adc9416dab6bdd2d1ad53069";
-
-        public TimeSpan SunriseMustBeAfter = new TimeSpan(10, 0, 0);
-        public TimeSpan SunriseMustBeBeBefore = new TimeSpan(10, 0, 0);
-        public TimeSpan SunsetMustBeAfter = new TimeSpan(10, 0, 0);
-        public TimeSpan SunsetMustBeBeBefore = new TimeSpan(10, 0, 0);
-
-        public double Latitude;
-        public double Longitude;
-    }
-
     public class Program
     {
-        public static async Task Main(string[] args)
+        public static async Task<T> Retry<T>(Func<T> func, double seconds = 30)
         {
-            var configuration = new Configuration();
-            
-            var timeBetweenChecks = new TimeSpan(Math.Max(configuration.TransitionTimeSpan.Ticks, configuration.PollingFrequency.Ticks));
+            bool hasBeenReported = false;
 
-            bool hasLastErrorAlreadyBeenLogged = false;
-
-            Exception lastException;
             do
             {
                 try
                 {
-                    var coordinates = GetGeolocationFromIPAddress(configuration);
-                    configuration.Latitude = coordinates.latitude;
-                    configuration.Longitude = coordinates.latitude;
-                    lastException = null;
+                    return func();
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
-                    lastException = e;
+                    if (!hasBeenReported)
+                    {
+                        Console.WriteLine(e);
+                        hasBeenReported = true;
+                    }
                 }
-            } while (lastException != null);
 
-            while (true)
+                await Task.Delay(TimeSpan.FromSeconds(seconds));
+            } while (true);
+        }
+
+        public static async Task<T> Retry<T>(Func<Task<T>> func, double seconds = 30)
+        {
+            bool hasBeenReported = false;
+
+            do
             {
                 try
+                {
+                    return await func();
+                }
+                catch (Exception e)
+                {
+                    if (!hasBeenReported)
+                    {
+                        Console.WriteLine(e);
+                        hasBeenReported = true;
+                    }
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(seconds));
+            } while (true);
+        }
+
+        public static async Task Main(string[] args)
+        {
+            var configuration = new Configuration();
+
+            var timeBetweenChecks = new TimeSpan(Math.Max(configuration.TransitionTimeSpan.Ticks, configuration.PollingFrequency.Ticks));
+
+            var coordinates = await Retry(() => GetGeolocationFromIPAddress(configuration), 120);
+
+            configuration.Latitude = coordinates.latitude;
+            configuration.Longitude = coordinates.longitude;
+
+            await Retry(async () =>
+            {
+                LocalHueClient hueClient = new LocalHueClient(configuration.BridgeIP);
+                hueClient.Initialize(configuration.BridgeApiKey);
+
+                while (true)
                 {
                     var lastRunTime = DateTimeOffset.Now;
 
                     int colorTemperature = GetTargetColorTemperature(lastRunTime, configuration);
 
-                    SetLightsToColorTemperature(colorTemperature, configuration);
-                    hasLastErrorAlreadyBeenLogged = false;
+                    await SetLightsToColorTemperature(hueClient, colorTemperature, configuration);
+     
+                    await Task.Delay(timeBetweenChecks).ConfigureAwait(false);
                 }
-                catch
-                {
-                    if (!hasLastErrorAlreadyBeenLogged)
-                        Console.WriteLine($"{DateTimeOffset.Now}: Bridge Exception");
-
-                    hasLastErrorAlreadyBeenLogged = true;
-                }
-
-                await Task.Delay(timeBetweenChecks);
-            }
+                return 1;
+            });
         }
 
-        private static void SetLightsToColorTemperature(int colorTemperature, Configuration configuration)
+        private static async Task SetLightsToColorTemperature(HueClient hueClient, int colorTemperature, Configuration configuration)
         {
-            var bridgeUri = new Uri(configuration.BridgeUri + configuration.BridgeApiKey);
+            var allLights = await hueClient.GetLightsAsync();
+            var onLights = allLights.Where(item => item.State.On);
 
-            const string allLightsGroupName = "Hue3D";
+            var lightIdsToChange = new List<string>();
 
-            var allLights = Http.GetJson<Dictionary<string, Light>>(bridgeUri, "lights");
-
-            var lightsGroupedByOnState = allLights.GroupBy(item => item.Value.state.on)
-                .ToDictionary(x => x.Key, g => g.ToDictionary(x => x.Key, x => x.Value));
-
-            Dictionary<string, Light> onLights = null;
-
-            bool areAllLightsInNecessaryState = true;
-            if (lightsGroupedByOnState.TryGetValue(true, out onLights))
+            foreach (var onLight in onLights)
             {
-                foreach (var onLight in onLights)
+                var lightState = onLight.State;
+                if (lightState.On == true)
                 {
-                    Light.LightState lightState = onLight.Value.state;
-                    if (lightState.reachable == true)
+                    if (lightState.ColorTemperature != colorTemperature)
                     {
-                        if (lightState.ct != colorTemperature)
-                        {
-                            Console.WriteLine($"{DateTime.Now}: Light { onLight.Key } switching { lightState.ct } -> { colorTemperature }");
-                            areAllLightsInNecessaryState = false;
-                            break;
-                        }
+                        Console.WriteLine($"{DateTime.Now}: Light { onLight.Name } switching { lightState.ColorTemperature } -> { colorTemperature }");
+                        lightIdsToChange.Add(onLight.Id);
                     }
                 }
             }
 
-            if (!areAllLightsInNecessaryState)
+            if (lightIdsToChange.Count > 0)
             {
-                var lightGroups = Http.GetJson<Dictionary<string, LightGroup>>(bridgeUri, "groups");
-
-                string allLightsGroupId = GetOrCreateGroup(bridgeUri, lightGroups, allLights, allLightsGroupName);
-
-                if (allLightsGroupId == null)
-                {
-                    throw new Exception();
-                }
-
-                //var transitionTime = TimeSpan.FromMinutes(15);
-                var groupActionResponse = Http.PutJson<object>(bridgeUri, "groups/" + allLightsGroupId + "/action", new
-                {
-                    ct = colorTemperature,
-                    transitiontime = GetTransitionTimeInHueUnits(configuration.TransitionTimeSpan),
-                });
-
-                //Thread.Sleep(transitionTime);
+                var command = new LightCommand();
+                command.ColorTemperature = colorTemperature;
+                command.TransitionTime = configuration.TransitionTimeSpan;
+                await hueClient.SendCommandAsync(command, lightIdsToChange);
             }
-        }
-
-        private static int GetTransitionTimeInHueUnits(TimeSpan timespan)
-        {
-            return (int)(10.0 * timespan.TotalSeconds);
         }
 
         private static (double latitude, double longitude) GetGeolocationFromIPAddress(Configuration configuration)
@@ -164,76 +143,29 @@ namespace HueShift
             SolarTimes solarTimes = new SolarTimes(currentTime, configuration.Latitude, configuration.Longitude);
 
             //These are local DateTimes Kind: Unspecificied 
-            DateTimeOffset sunrise = solarTimes.Sunrise;
-            DateTimeOffset sunset = solarTimes.Sunset;
+            DateTimeOffset sunrise = ClampTime(solarTimes.Sunrise, configuration.SunriseMustBeAfter, configuration.SunriseMustBeBeBefore);
+            DateTimeOffset sunset = ClampTime(solarTimes.Sunset, configuration.SunsetMustBeAfter, configuration.SunsetMustBeBeBefore);
 
             int colorTemperature;
 
-            // if (sunset > new DateTimeOffset(currentTime.Date + configuration.SunsetMustBeBeBefore))
-            // {
-            //     sunset = new DateTimeOffset(currentTime.Date + configuration.SunsetMustBeBeBefore);
-            // }
-            // else if (sunset < new DateTimeOffset(currentTime.Date + configuration.SunsetMustBeAfter))
-            // {
-            //     sunset = new DateTimeOffset(currentTime.Date + configuration.SunsetMustBeAfter);
-            // }
-
             if (currentTime < sunrise || currentTime > sunset)
             {
-                colorTemperature = configuration.DayColorTemperature;
+                colorTemperature = configuration.NightColorTemperature;
             }
             else
             {
-                colorTemperature = configuration.NightColorTemperature;
+                colorTemperature = configuration.DayColorTemperature;
             }
 
             return colorTemperature;
         }
 
-        private static string GetOrCreateGroup(Uri bridgeUri, Dictionary<string, LightGroup> lightGroups, Dictionary<string, Light> lights, string lightGroupName)
+        public static DateTimeOffset ClampTime(DateTimeOffset time, TimeSpan minTimeOfDay, TimeSpan maxTimeOfDay)
         {
-            string groupForSettingId = null;
-            if (lightGroups.Where(x => x.Value.name == lightGroupName).Any())
-            {
-                var groupForSetting = lightGroups.Where(x => x.Value.name == lightGroupName).First();
-                groupForSettingId = groupForSetting.Key;
-
-                var response = Http.PutJson<object>(bridgeUri, "groups/" + groupForSettingId, new
-                {
-                    lights = lights.Keys.ToList()
-                });
-            }
-            else
-            {
-                var response = Http.PostJson<List<Dictionary<string, IdResponse>>>(bridgeUri, "groups", new
-                {
-                    name = lightGroupName,
-                    //recycle = true,
-                    lights = lights.Keys.ToList()
-                });
-
-                foreach (var item in response)
-                {
-                    IdResponse idResponse;
-                    if (item.TryGetValue("success", out idResponse))
-                    {
-                        groupForSettingId = idResponse.id;
-                        break;
-                    }
-                    else
-                    {
-                        throw new Exception();
-                    }
-                }
-                Console.WriteLine(response);
-            }
-
-            return groupForSettingId;
+            var clamped = new TimeSpan(Math.Clamp(time.TimeOfDay.Ticks, minTimeOfDay.Ticks, maxTimeOfDay.Ticks));
+            return time.Date + clamped;
         }
 
-        private static void SetLightState(Uri bridgeUri, string lightNumber, object settings)
-        {
-            var response = Http.PutJson<object>(bridgeUri, "lights/" + lightNumber + "/state", settings);
-        }
+
     }
 }
