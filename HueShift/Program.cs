@@ -71,7 +71,7 @@ namespace HueShift
                     return;
                 }
 
-                string configurationFileName = @"configuration.json";
+                string configurationFileName = @"hueShift-conf.json";
                 if (resetOption.HasValue())
                 {
                     File.Delete(configurationFileName);
@@ -81,6 +81,27 @@ namespace HueShift
                 if (File.Exists(configurationFileName))
                 {
                     configuration = JsonConvert.DeserializeObject<Configuration>(File.ReadAllText(configurationFileName));
+                }
+
+                if (latitudeOption.HasValue() ^ longitudeOption.HasValue())
+                    throw new Exception("When supplying latitude or longitude, you must supply both.  Only one of them was given.");
+
+                if (latitudeOption.HasValue())
+                {
+                    configuration.PositionState = new PositionState
+                    {
+                        Latitude = latitudeOption.ParsedValue,
+                        Longitude = longitudeOption.ParsedValue,
+                    };
+                }
+                else
+                {
+                    if (configuration.PositionState == null)
+                    {
+                        configuration.PositionState = new PositionState();
+                        (configuration.PositionState.Latitude, configuration.PositionState.Longitude) = await AsyncUtils.Retry(() => Geolocation.GetLocationFromIPAddress(configuration), 120);
+                        TrySaveConfiguration(noConfigurationSaveOption, configuration, configurationFileName);
+                    }
                 }
 
                 if (sunsetMustBeAfterOption.HasValue())
@@ -107,25 +128,6 @@ namespace HueShift
                 if (transitionTimeOption.HasValue())
                     configuration.TransitionTime = transitionTimeOption.ParsedValue;
 
-                if (latitudeOption.HasValue() ^ longitudeOption.HasValue())
-                    throw new Exception("When supplying latitude or longitude, you must supply both.  Only one of them was given.");
-
-                if (latitudeOption.HasValue())
-                {
-                    configuration.PositionState = new PositionState
-                    {
-                        Latitude = latitudeOption.ParsedValue,
-                        Longitude = longitudeOption.ParsedValue,
-                    };
-                }
-                else
-                {
-                    if (configuration.PositionState == null)
-                    {
-                        configuration.PositionState = new PositionState();
-                        (configuration.PositionState.Latitude, configuration.PositionState.Longitude) = await AsyncUtils.Retry(() => Geolocation.GetLocationFromIPAddress(configuration), 120);
-                    }
-                }
 
                 if (configuration.BridgeState == null)
                 {
@@ -150,25 +152,52 @@ namespace HueShift
                 LocalHueClient hueClient = new LocalHueClient(configuration.BridgeState.BridgeHostname);
                 if (string.IsNullOrEmpty(configuration.BridgeState.BridgeApiKey))
                 {
-                    configuration.BridgeState.BridgeApiKey = await hueClient.RegisterAsync("HueShift", "Bridge0");
+                    bool hasSucceeded = false;
+                    for (int i = 0; i < 3 && !hasSucceeded; i++)
+                    {
+                        try
+                        {
+                            configuration.BridgeState.BridgeApiKey = await hueClient.RegisterAsync("HueShift", "Bridge0");
+                            hasSucceeded = true;
+                        }
+                        catch
+                        {
+                        }
 
-                    if(string.IsNullOrEmpty(configuration.BridgeState.BridgeApiKey))
-                        throw new Exception("did not register");
+                        if (!hasSucceeded)
+                        {
+                            const double secondsBeforeRetrying = 10.0;
+                            Console.WriteLine($"Failed to authorize. Make sure you pressed the button on the front of the hue bridge. Trying again in {secondsBeforeRetrying}");
+                            await Task.Delay(TimeSpan.FromSeconds(secondsBeforeRetrying));
+                        }
+                    }
+
+                    if (!hasSucceeded)
+                    {
+                        Console.WriteLine("Bridge did not register! Rerun program and make sure you hit the button on the hue bridge.");
+                        Console.WriteLine("If things still aren't working, then run the program with the --reset argument to clear everything and start fresh.");
+                        return;
+                    }
                 }
                 else
                 {
                     hueClient.Initialize(configuration.BridgeState.BridgeApiKey);
                 }
 
-                if (!noConfigurationSaveOption.HasValue())
-                {
-                    File.WriteAllText(configurationFileName, JsonConvert.SerializeObject(configuration, Formatting.Indented));
-                }
+                TrySaveConfiguration(noConfigurationSaveOption, configuration, configurationFileName);
 
                 await LightScheduler.ContinuallyEnforceLightTemperature(configuration, hueClient);
             });
 
             return app.Execute(args);
+        }
+
+        private static void TrySaveConfiguration(CommandOption noConfigurationSaveOption, Configuration configuration, string configurationFileName)
+        {
+            if (!noConfigurationSaveOption.HasValue())
+            {
+                File.WriteAllText(configurationFileName, JsonConvert.SerializeObject(configuration, Formatting.Indented));
+            }
         }
 
         public static bool TryParse<T>(CommandOption<T> option, out T value)
