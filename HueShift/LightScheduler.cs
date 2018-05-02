@@ -29,21 +29,18 @@ namespace HueShift
                     var now = DateTimeOffset.Now;
 
                     int colorTemperature = GetTargetColorTemperature(now, configuration);
-                    if(colorTemperature == 0)
-                        return 1;
-
+           
                     await SetLightsToColorTemperature(hueClient, colorTemperature, configuration);
 
                     await Task.Delay(timeBetweenChecks).ConfigureAwait(false);
                 }
-                //return 1;
             });
         }
 
         private static async Task SetLightsToColorTemperature(HueClient hueClient, int colorTemperature, Configuration configuration)
         {
             var allLights = await hueClient.GetLightsAsync();
-            var onLights = allLights.Where(item => item.State.On);
+            var onLights = allLights.Where(item => item.State.On).ToList();
 
             var lightIdsToChange = new List<string>();
 

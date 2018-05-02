@@ -18,7 +18,7 @@ namespace HueShift
 {
     public static class AsyncUtils
     {
-        public static async Task<T> Retry<T>(Func<T> func, double seconds = 30)
+        public static async Task Retry(Func<Task> func, double seconds = 30)
         {
             bool hasBeenReported = false;
 
@@ -26,30 +26,8 @@ namespace HueShift
             {
                 try
                 {
-                    return func();
-                }
-                catch (Exception e)
-                {
-                    if (!hasBeenReported)
-                    {
-                        Console.WriteLine(e);
-                        hasBeenReported = true;
-                    }
-                }
-
-                await Task.Delay(TimeSpan.FromSeconds(seconds));
-            } while (true);
-        }
-
-        public static async Task<T> Retry<T>(Func<Task<T>> func, double seconds = 30)
-        {
-            bool hasBeenReported = false;
-
-            do
-            {
-                try
-                {
-                    return await func();
+                    await func();
+                    hasBeenReported = false;
                 }
                 catch (Exception e)
                 {

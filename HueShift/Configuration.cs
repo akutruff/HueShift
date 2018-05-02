@@ -13,7 +13,6 @@ namespace HueShift
     public class BridgeState
     {
         public string BridgeHostname;
-        public string BridgeUri;
         public string BridgeApiKey;
     }
 

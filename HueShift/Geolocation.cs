@@ -18,10 +18,11 @@ namespace HueShift
 {
     public class Geolocation
     {
-        public static (double latitude, double longitude) GetLocationFromIPAddress(Configuration configuration)
+        public static async Task<(double latitude, double longitude)> GetLocationFromIPAddress(Configuration configuration)
         {
             var geolocationURi = new Uri(configuration.IpStackUri + configuration.IpStackApiKey);
-            var geolocationResponse = Http.Get(geolocationURi);
+            var httpClient = new HttpClient();
+            string geolocationResponse = await httpClient.GetStringAsync(geolocationURi);
             dynamic response = JObject.Parse(geolocationResponse);
 
             return (

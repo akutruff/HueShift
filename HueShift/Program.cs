@@ -99,7 +99,7 @@ namespace HueShift
                     if (configuration.PositionState == null)
                     {
                         configuration.PositionState = new PositionState();
-                        (configuration.PositionState.Latitude, configuration.PositionState.Longitude) = await AsyncUtils.Retry(() => Geolocation.GetLocationFromIPAddress(configuration), 120);
+                        (configuration.PositionState.Latitude, configuration.PositionState.Longitude) = await Geolocation.GetLocationFromIPAddress(configuration);
                         TrySaveConfiguration(noConfigurationSaveOption, configuration, configurationFileName);
                     }
                 }
@@ -143,11 +143,13 @@ namespace HueShift
 
                     if (locatedBridges.Count == 0)
                     {
-                        throw new Exception("No bridges discovered on your network.");
+                        Console.WriteLine("No bridges discovered on your network.");
+                        return;
                     }
 
                     configuration.BridgeState.BridgeHostname = locatedBridges[0].IpAddress;
                 }
+                Console.WriteLine($"Bridge hostname: {configuration.BridgeState.BridgeHostname}");
 
                 LocalHueClient hueClient = new LocalHueClient(configuration.BridgeState.BridgeHostname);
                 if (string.IsNullOrEmpty(configuration.BridgeState.BridgeApiKey))
@@ -160,8 +162,11 @@ namespace HueShift
                             configuration.BridgeState.BridgeApiKey = await hueClient.RegisterAsync("HueShift", "Bridge0");
                             hasSucceeded = true;
                         }
-                        catch
+                        catch (Exception e)
                         {
+                            Console.WriteLine(e);
+                            Console.WriteLine();
+                            Console.WriteLine();
                         }
 
                         if (!hasSucceeded)
@@ -183,9 +188,9 @@ namespace HueShift
                 {
                     hueClient.Initialize(configuration.BridgeState.BridgeApiKey);
                 }
-
+                Console.WriteLine("Saving");
                 TrySaveConfiguration(noConfigurationSaveOption, configuration, configurationFileName);
-
+                Console.WriteLine("Starting");
                 await LightScheduler.ContinuallyEnforceLightTemperature(configuration, hueClient);
             });
 
@@ -200,39 +205,35 @@ namespace HueShift
             }
         }
 
-        public static bool TryParse<T>(CommandOption<T> option, out T value)
-        {
-            if (option.HasValue())
-            {
-                value = option.ParsedValue;
-                return true;
-            }
-            value = default(T);
-            return false;
-        }
-
         private static async Task<List<LocatedBridge>> DiscoverBridgesAsync(Configuration configuration)
         {
             List<LocatedBridge> locatedBridges = new List<LocatedBridge>();
-            try
-            {
-                SSDPBridgeLocator locator = new SSDPBridgeLocator();
-                var bridges = (await locator.LocateBridgesAsync(TimeSpan.FromSeconds(10))).ToList();
 
-                locatedBridges.AddRange(bridges);
-            }
-            catch
-            {
+            Console.WriteLine("Locating through HTTP.");
+            HttpBridgeLocator locator = new HttpBridgeLocator();
+            var bridges = (await locator.LocateBridgesAsync(TimeSpan.FromSeconds(10))).ToList();
 
-            }
+            locatedBridges.AddRange(bridges);
+
 
             if (locatedBridges.Count == 0)
             {
-                HttpBridgeLocator locator = new HttpBridgeLocator();
-                var bridges = (await locator.LocateBridgesAsync(TimeSpan.FromSeconds(10))).ToList();
+                Console.WriteLine("Http found nothing");
+                // try
+                // {
+                //     Console.WriteLine("SSDP location attempt.");
+                //     SSDPBridgeLocator locator = new SSDPBridgeLocator();
+                //     var bridges = (await locator.LocateBridgesAsync(TimeSpan.FromSeconds(10))).ToList();
 
-                locatedBridges.AddRange(bridges);
+                //     locatedBridges.AddRange(bridges);
+                // }
+                // catch
+                // {
+                //     Console.WriteLine("SSDP Failed");
+                // }
             }
+
+
 
             return locatedBridges;
         }
