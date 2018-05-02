@@ -18,27 +18,17 @@ namespace HueShift
 {
     public class LightScheduler
     {
-        public static async Task Main()
+        public static async Task ContinuallyEnforceLightTemperature(Configuration configuration, HueClient hueClient)
         {
-            var configuration = new Configuration();
-
             var timeBetweenChecks = new TimeSpan(Math.Max(configuration.TransitionTimeSpan.Ticks, configuration.PollingFrequency.Ticks));
-
-            var coordinates = await AsyncUtils.Retry(() => GetGeolocationFromIPAddress(configuration), 120);
-
-            configuration.Latitude = coordinates.latitude;
-            configuration.Longitude = coordinates.longitude;
 
             await AsyncUtils.Retry(async () =>
             {
-                LocalHueClient hueClient = new LocalHueClient(configuration.BridgeIP);
-                hueClient.Initialize(configuration.BridgeApiKey);
-
                 while (true)
                 {
-                    var lastRunTime = DateTimeOffset.Now;
+                    var now = DateTimeOffset.Now;
 
-                    int colorTemperature = GetTargetColorTemperature(lastRunTime, configuration);
+                    int colorTemperature = GetTargetColorTemperature(now, configuration);
                     if(colorTemperature == 0)
                         return 1;
 
@@ -75,19 +65,9 @@ namespace HueShift
                 var command = new LightCommand();
                 command.ColorTemperature = colorTemperature;
                 command.TransitionTime = configuration.TransitionTimeSpan;
+                
                 await hueClient.SendCommandAsync(command, lightIdsToChange);
             }
-        }
-
-        private static (double latitude, double longitude) GetGeolocationFromIPAddress(Configuration configuration)
-        {
-            var geolocationURi = new Uri(configuration.IpStackUri + configuration.IpStackApiKey);
-            var geolocationResponse = Http.Get(geolocationURi);
-            dynamic response = JObject.Parse(geolocationResponse);
-
-            return (
-                (double)response.latitude,
-                (double)response.longitude);
         }
 
         private static int GetTargetColorTemperature(DateTimeOffset currentTime, Configuration configuration)
