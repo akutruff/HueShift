@@ -20,7 +20,7 @@ namespace HueShift
     {
         public static async Task ContinuallyEnforceLightTemperature(Configuration configuration, HueClient hueClient)
         {
-            var timeBetweenChecks = new TimeSpan(Math.Max(configuration.TransitionTimeSpan.Ticks, configuration.PollingFrequency.Ticks));
+            var timeBetweenChecks = new TimeSpan(Math.Max(configuration.TransitionTime.Ticks, configuration.PollingFrequency.Ticks));
 
             await AsyncUtils.Retry(async () =>
             {
@@ -64,15 +64,15 @@ namespace HueShift
             {
                 var command = new LightCommand();
                 command.ColorTemperature = colorTemperature;
-                command.TransitionTime = configuration.TransitionTimeSpan;
-                
+                command.TransitionTime = configuration.TransitionTime;
+
                 await hueClient.SendCommandAsync(command, lightIdsToChange);
             }
         }
 
         private static int GetTargetColorTemperature(DateTimeOffset currentTime, Configuration configuration)
         {
-            SolarTimes solarTimes = new SolarTimes(currentTime, configuration.Latitude, configuration.Longitude);
+            SolarTimes solarTimes = new SolarTimes(currentTime, configuration.PositionState.Latitude, configuration.PositionState.Longitude);
 
             //These are local DateTimes Kind: Unspecificied 
             DateTimeOffset sunrise = ClampTime(solarTimes.Sunrise, configuration.SunriseMustBeAfter, configuration.SunriseMustBeBeBefore);
