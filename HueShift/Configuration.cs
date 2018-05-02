@@ -19,8 +19,8 @@ namespace HueShift
 
         public TimeSpan SunriseMustBeAfter = new TimeSpan(0, 0, 0);
         public TimeSpan SunriseMustBeBeBefore = new TimeSpan(10, 0, 0);
-        public TimeSpan SunsetMustBeAfter = new TimeSpan(6, 0, 0);
-        public TimeSpan SunsetMustBeBeBefore = new TimeSpan(7, 30, 0);
+        public TimeSpan SunsetMustBeAfter = new TimeSpan(18, 0, 0);
+        public TimeSpan SunsetMustBeBeBefore = new TimeSpan(19, 30, 0);
 
         public double Latitude;
         public double Longitude;
