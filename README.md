@@ -30,4 +30,4 @@ To help pay for further development, and turnkey geolocation and proxy service w
 
 bitcoin:34TxsK9Wfd8GcjMTL3uzVkxF1WoKC9qXoW
 
-[[https://github.com/akutruff/HueShift/blob/master/img/donate.png|alt=donate]]
+![Donate!](https://github.com/akutruff/HueShift/blob/master/img/donate.png)
