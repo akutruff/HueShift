@@ -1,10 +1,12 @@
-# HueShift
+# HueShift for the Raspberry Pi!
 
 Make your Phillips Hue lights shift color temperature at sunrise and sunset just like Flux and NightShift.  
 
-Install this on a Raspberry Pi, Windows, or Linux machine and your house rises and sets with the sun.  When a light gets turned on, it will automatically change to the right color within 10 seconds.  
+Automatically makes your lights cool and energetic during the day and warm and relaxing at sunset.  Works even when the lights are powered off and on again.
 
-In order for your body to properly regulate your sleep cycle, you need to be exposed to blue light during the day and only red light at night.  This project is originally inspired from the awesome Flux project that I highly recommend installing right now https://justgetflux.com/.  (Flux can control Hue too, but it dims your lights too much and can't be customized.)  
+Install this on a Raspberry Pi, and your house rises and sets with the sun.  When a light gets turned on, it will automatically change to the right color within 10 seconds.  (Built on .NET Core 2 so this will run on Windows, and Linux as well!)
+
+In order for your body to properly regulate your sleep cycle, you need to be exposed to blue light during the day and only red light at night.  This project is originally inspired from the awesome Flux project that I highly recommend installing on your machine right now https://justgetflux.com/.  (Flux can control Hue too, but it isn't quite there yet.) 
 
 HueShift does the same thing but with your Phillips Hue Light bulbs.  The program automatically discovers your location on earth by using a geolocation service against your IP address.  Then it continually calculates sunrise and sunset.  During the daytime, your bulbs are forced to be as cool as possible.  After sunset, they are as red as possible. There's lots of configuration you can do through the command line or the generated configuration file.
 
@@ -45,4 +47,8 @@ bitcoin:34TxsK9Wfd8GcjMTL3uzVkxF1WoKC9qXoW
 
 ### Customization:
 
-After you run HueShift the first time, a conf file will appear in the Hue directory.  It's pretty self explanatory if you crack it open you can edit the defaults and discovered values.  Make sure the service has been stopped before editing the file.  (It's alpha code.)
+`/home/pi/HueShift/hueShift-conf.json`
+
+After you run HueShift the first time, a conf file will appear in the Hue directory.  It's pretty self explanatory if you crack it open you can edit the defaults and discovered values.  Make sure the service has been stopped before editing the file.  (It's quick but very stable code ya'll.)
+
+If you have an advanced setup with your Hue running on a different subnet or if UPnP / HTTP discovery aren't working, you can crack the conf file and manually enter your hostname for the bridge.  May need to specify port 80 as well if it's not working with just the IP.
