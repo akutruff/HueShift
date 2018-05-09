@@ -22,12 +22,27 @@ sudo ln -s /opt/dotnet/dotnet /usr/local/bin
 Test the installation by typing 
 dotnet --help.
 
-Install build:
+#### Install latest build and run it.
 
+```
+curl -sSL -o HueShift.zip https://github.com/akutruff/HueShift/releases/download/0.1/HueShift.zip 
+unzip HueShift.zip -d /home/pi/HueShift
+sudo cp hueshift.service /etc/systemd/system/hueshift.service
+sudo systemctl start hueshift.service
+sudo systemctl enable hueshift.service
+```
+#### Hit the button on the hue bridge!  
+
+The code at the moment tries three times to connect to the bridge before the program times out.  The service will continually retry.
 
 ### Donate:
-To help pay for further development, and turnkey geolocation and proxy service when free limits are reached, Bitcoin donations are accepted here:
+To help pay for further development and allow those to benefit from turnkey geolocation and proxy service when free limits are reached, Bitcoin donations are accepted here:
 
 bitcoin:34TxsK9Wfd8GcjMTL3uzVkxF1WoKC9qXoW
 
 ![Donate!](https://github.com/akutruff/HueShift/blob/master/img/donate.png)
+
+
+### Customization:
+
+After you run HueShift the first time, a conf file will appear in the Hue directory.  It's pretty self explanatory if you crack it open you can edit the defaults and discovered values.  Make sure the service has been stopped before editing the file.  (It's alpha code.)
