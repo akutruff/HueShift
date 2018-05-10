@@ -1,20 +1,25 @@
 # HueShift for the Raspberry Pi!
 
-Make your Phillips Hue lights automatically cool and energetic during the day and at sunrise and sunset just like Flux and NightShift.  
+For the lazy logged in as the pi user:
+```
+curl -sSL https://raw.githubusercontent.com/akutruff/HueShift/master/install.sh | sudo bash
+```
 
-Install this on a Raspberry Pi, and your house rises and sets with the sun.  When a light gets turned on, it will automatically change to the right color within 10 seconds.  (Built on .NET Core 2 so this will run on Windows, and Linux as well!)
+Make your Phillips Hue lights cool during the day and warm after sunset just like Flux and Apple's Night Shift.  
+
+Install on a Raspberry Pi, and your house rises and sets with the sun.  When a light gets turned on, it will automatically change to the right color within 10 seconds.  (Built on .NET Core 2 so this will run on Windows, and Linux as well!)
 
 #### Science 
 
-Theory: In order for your body to properly regulate your sleep cycle, you need to be exposed to blue light during the day and only red light at night.  This project is originally inspired from the awesome Flux that I highly recommend installing on your machine right now https://justgetflux.com/.  (Flux can control Hue too, but it isn't quite what I wanted/need.) 
+In order for your body to properly regulate your sleep cycle, you need to be exposed to blue light during the day and only red light at night.  This project is originally inspired from the awesome program, Flux, that I highly recommend installing on your machine right now https://justgetflux.com/.  (Flux can control Hue too, but it doesn't get the job done.) 
 
-HueShift does the same thing but with your Phillips Hue Light bulbs.  The program automatically discovers your location on earth by using a geolocation service against your IP address.  Then it continually calculates sunrise and sunset for your latitude and longitude.  During the daytime, your bulbs are forced to be as cool as possible.  After sunset, they are as red as possible. There's lots of configuration you can do through the command line or the generated configuration file.
+HueShift automatically geolocates against your IP address and continually calculates sunrise and sunset for your latitude and longitude.  During the daytime, your bulbs are forced to be as cool as possible.  After sunset, they are as red as possible. There's lots of configuration you can do through the command line or the generated configuration file.
 
 ## Instructions for Raspberry Pi:
 
-#### Install .NET Core 2 for Raspberry Pi 
+Get yourself a Raspberry Pi. Do the SD card thing. (Pi Zero doesn't support arm7, so no luck there. Sorry, folks.)
 
-Get yourself a Raspberry Pi. Do the SD card thing. (Pi Zero doesn't not support arm7, so no luck there.)
+#### Install .NET Core 2 
 
 Taken from: [blogs.msdn](https://blogs.msdn.microsoft.com/david/2017/07/20/setting_up_raspian_and_dotnet_core_2_0_on_a_raspberry_pi/)
 ```
@@ -26,7 +31,7 @@ sudo ln -s /opt/dotnet/dotnet /usr/local/bin
 Test the installation by typing. 
 ```dotnet --help```
 
-It will say something wierd about installing the SDK.  Ignore that noise.  You're good.
+It will say something weird about installing the SDK.  Ignore that noise.  You're good.
 
 #### Install latest build and run it.
 
