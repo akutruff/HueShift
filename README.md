@@ -55,7 +55,7 @@ sudo cp hueshift.service /etc/systemd/system/hueshift.service
 sudo systemctl start hueshift.service
 sudo systemctl enable hueshift.service
 ```
-Now put your Pi somewhere, and leave it onl, augh heartily, and you now have an automatic sunrise and sunset machine!  
+Now put your Pi somewhere, and leave it on, laugh heartily, and you now have an automatic sunrise and sunset machine!  
 
 ### Donate:
 To help pay for further development and allow those to benefit from turnkey geolocation and proxy service when free limits are reached, Bitcoin donations are accepted here:
