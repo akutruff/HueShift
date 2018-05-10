@@ -4,6 +4,8 @@ Make your Phillips Hue lights automatically cool and energetic during the day an
 
 Install this on a Raspberry Pi, and your house rises and sets with the sun.  When a light gets turned on, it will automatically change to the right color within 10 seconds.  (Built on .NET Core 2 so this will run on Windows, and Linux as well!)
 
+#### Science 
+
 Theory: In order for your body to properly regulate your sleep cycle, you need to be exposed to blue light during the day and only red light at night.  This project is originally inspired from the awesome Flux that I highly recommend installing on your machine right now https://justgetflux.com/.  (Flux can control Hue too, but it isn't quite what I wanted/need.) 
 
 HueShift does the same thing but with your Phillips Hue Light bulbs.  The program automatically discovers your location on earth by using a geolocation service against your IP address.  Then it continually calculates sunrise and sunset for your latitude and longitude.  During the daytime, your bulbs are forced to be as cool as possible.  After sunset, they are as red as possible. There's lots of configuration you can do through the command line or the generated configuration file.
