@@ -12,7 +12,7 @@ HueShift does the same thing but with your Phillips Hue Light bulbs.  The progra
 
 ## Instructions for Raspberry Pi:
 
-### Install .NET Core 2 for Raspberry Pi 
+#### Install .NET Core 2 for Raspberry Pi 
 
 Taken from: [blogs.msdn](https://blogs.msdn.microsoft.com/david/2017/07/20/setting_up_raspian_and_dotnet_core_2_0_on_a_raspberry_pi/)
 ```
@@ -26,7 +26,7 @@ Test the installation by typing.
 
 It may warn you about an 
 
-### Install latest build and run it.
+#### Install latest build and run it.
 
 ```
 curl -sSL -o HueShift.zip https://github.com/akutruff/HueShift/releases/download/0.1/HueShift.zip 
