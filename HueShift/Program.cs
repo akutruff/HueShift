@@ -29,7 +29,7 @@ namespace HueShift
             app.HelpOption("-h|--help");
 
             var resetOption = app.Option("-r|--reset", "Clear all saved configuration to defaults.", CommandOptionType.NoValue);
-            var noConfigurationSaveOption = app.Option("--do-not-save-config", "Do not save configuration.", CommandOptionType.NoValue);
+            var doNotSaveConfigurationOption = app.Option("--do-not-save-config", "Do not save configuration.", CommandOptionType.NoValue);
 
             var discoverBridgesOption = app.Option("-d|--discover-bridges", "Discover bridges on network even if you already have.", CommandOptionType.NoValue);
             var bridgeHostnameOption = app.Option<string>("--bridge-hostname <hostname>", "Manually enter bridge hostname or ip address.", CommandOptionType.SingleValue);
@@ -55,6 +55,8 @@ namespace HueShift
             {
                 Configuration configuration = new Configuration();
 
+                Console.WriteLine($"Timezone: {TimeZoneInfo.Local} <--- make sure this is right!!!");
+
                 if (discoverBridgesOption.HasValue())
                 {
                     var locatedBridges = await DiscoverBridgesAsync(configuration);
@@ -68,14 +70,14 @@ namespace HueShift
                     {
                         Console.WriteLine($"ID: {locatedBridges[i].BridgeId,-10} IP: {locatedBridges[i].IpAddress}");
                     }
-                    return;
+                    return -1;
                 }
 
                 string configurationFileName = @"hueShift-conf.json";
                 if (resetOption.HasValue())
                 {
                     File.Delete(configurationFileName);
-                    return;
+                    return -1;
                 }
 
                 if (File.Exists(configurationFileName))
@@ -94,14 +96,25 @@ namespace HueShift
                         Longitude = longitudeOption.ParsedValue,
                     };
                 }
-                else
+
+                if (configuration.PositionState == null)
                 {
-                    if (configuration.PositionState == null)
+                    try
                     {
                         configuration.PositionState = new PositionState();
                         (configuration.PositionState.Latitude, configuration.PositionState.Longitude) = await Geolocation.GetLocationFromIPAddress(configuration);
-                        TrySaveConfiguration(noConfigurationSaveOption, configuration, configurationFileName);
+                        TrySaveConfiguration(doNotSaveConfigurationOption, configuration, configurationFileName);
                     }
+                    catch
+                    {
+                        Console.Write("Failed to get geolocation data for your ip address.  Please visit ipstack.com to get your latitude and longitude and rerun the program with --latitude and --longitude command line arguments or put them directly in the configuration file.");
+                        return -1;
+                    }
+                }
+
+                if (configuration.PositionState != null)
+                {
+                    Console.WriteLine($"Latitude: {configuration.PositionState.Latitude, -10} Logitude: {configuration.PositionState.Longitude, -10}");
                 }
 
                 if (sunsetMustBeAfterOption.HasValue())
@@ -144,7 +157,7 @@ namespace HueShift
                     if (locatedBridges.Count == 0)
                     {
                         Console.WriteLine("No bridges discovered on your network.");
-                        return;
+                        return -1;
                     }
 
                     configuration.BridgeState.BridgeHostname = locatedBridges[0].IpAddress;
@@ -155,24 +168,23 @@ namespace HueShift
                 if (string.IsNullOrEmpty(configuration.BridgeState.BridgeApiKey))
                 {
                     bool hasSucceeded = false;
-                    for (int i = 0; i < 3 && !hasSucceeded; i++)
+                    for (int i = 0; i < 10 && !hasSucceeded; i++)
                     {
                         try
                         {
                             configuration.BridgeState.BridgeApiKey = await hueClient.RegisterAsync("HueShift", "Bridge0");
                             hasSucceeded = true;
                         }
-                        catch (Exception e)
+                        catch
                         {
-                            Console.WriteLine(e);
-                            Console.WriteLine();
+                            Console.WriteLine("Failed to connect to Hue bridge!");
                             Console.WriteLine();
                         }
 
                         if (!hasSucceeded)
                         {
                             const double secondsBeforeRetrying = 10.0;
-                            Console.WriteLine($"Failed to authorize. Make sure you pressed the button on the front of the hue bridge. Trying again in {secondsBeforeRetrying}");
+                            Console.WriteLine($"Failed to authorize. Make sure you pressed the button on the front of the Hue bridge. Trying again in {secondsBeforeRetrying}");
                             await Task.Delay(TimeSpan.FromSeconds(secondsBeforeRetrying));
                         }
                     }
@@ -181,7 +193,8 @@ namespace HueShift
                     {
                         Console.WriteLine("Bridge did not register! Rerun program and make sure you hit the button on the hue bridge.");
                         Console.WriteLine("If things still aren't working, then run the program with the --reset argument to clear everything and start fresh.");
-                        return;
+                        Console.WriteLine("You can also manually put in the ip address of your bridge in your configuration file.");
+                        return -1;
                     }
                 }
                 else
@@ -189,9 +202,12 @@ namespace HueShift
                     hueClient.Initialize(configuration.BridgeState.BridgeApiKey);
                 }
                 Console.WriteLine("Saving");
-                TrySaveConfiguration(noConfigurationSaveOption, configuration, configurationFileName);
+                TrySaveConfiguration(doNotSaveConfigurationOption, configuration, configurationFileName);
                 Console.WriteLine("Starting");
+
                 await LightScheduler.ContinuallyEnforceLightTemperature(configuration, hueClient);
+
+                return -1;
             });
 
             return app.Execute(args);
@@ -232,8 +248,6 @@ namespace HueShift
                 //     Console.WriteLine("SSDP Failed");
                 // }
             }
-
-
 
             return locatedBridges;
         }

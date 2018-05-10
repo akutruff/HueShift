@@ -18,7 +18,7 @@ namespace HueShift
 {
     public static class AsyncUtils
     {
-        public static async Task Retry(Func<Task> func, double seconds = 30)
+        public static async Task ContinuallyExecuteReportingExceptionsOnlyOnce(Func<Task> func, double seconds = 30)
         {
             bool hasBeenReported = false;
 

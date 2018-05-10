@@ -4,26 +4,23 @@ using System.Globalization;
 
 namespace HueShift
 {
-    public partial class Program
+    public class TimeSpanParser : IValueParser<TimeSpan>
     {
-        internal class TimeSpanParser : IValueParser<TimeSpan>
+        public Type TargetType { get; } = typeof(TimeSpan);
+
+        Type IValueParser.TargetType => this.TargetType;
+
+        public TimeSpan Parse(string argName, string value, CultureInfo culture)
         {
-            public Type TargetType { get; } = typeof(TimeSpan);
-
-            Type IValueParser.TargetType => this.TargetType;
-
-            public TimeSpan Parse(string argName, string value, CultureInfo culture)
+            if (!TimeSpan.TryParse(value, out var result))
             {
-                if (!TimeSpan.TryParse(value, out var result))
-                {
-                    throw new FormatException($"Invalid value specified for {argName}. '{value}' is not a valid timespan");
-                }
-
-                return result;
+                throw new FormatException($"Invalid value specified for {argName}. '{value}' is not a valid timespan");
             }
 
-            object IValueParser.Parse(string argName, string value, CultureInfo culture)
-                => this.Parse(argName, value, culture);
+            return result;
         }
+
+        object IValueParser.Parse(string argName, string value, CultureInfo culture)
+            => this.Parse(argName, value, culture);
     }
 }

@@ -5,12 +5,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
-
-using System.Dynamic;
-using Newtonsoft.Json.Linq;
-using System.Threading;
 using Innovative.SolarCalculator;
-using McMaster.Extensions.CommandLineUtils;
 
 using Q42.HueApi;
 
@@ -22,14 +17,14 @@ namespace HueShift
         {
             var timeBetweenChecks = new TimeSpan(Math.Max(configuration.TransitionTime.Ticks, configuration.PollingFrequency.Ticks));
 
-            await AsyncUtils.Retry(async () =>
+            await AsyncUtils.ContinuallyExecuteReportingExceptionsOnlyOnce(async () =>
             {
                 while (true)
                 {
                     var now = DateTimeOffset.Now;
 
                     int colorTemperature = GetTargetColorTemperature(now, configuration);
-           
+
                     await SetLightsToColorTemperature(hueClient, colorTemperature, configuration);
 
                     await Task.Delay(timeBetweenChecks).ConfigureAwait(false);
@@ -40,30 +35,23 @@ namespace HueShift
         private static async Task SetLightsToColorTemperature(HueClient hueClient, int colorTemperature, Configuration configuration)
         {
             var allLights = await hueClient.GetLightsAsync();
-            var onLights = allLights.Where(item => item.State.On).ToList();
+  
+            var namesOfLightsToExclude = configuration.NamesOfLightsToExclude.ToHashSet();
+            var lightsToChange = allLights.Where(x => x.State.On && x.State.ColorTemperature != colorTemperature && !namesOfLightsToExclude.Contains(x.Name))
+                .ToList();
 
-            var lightIdsToChange = new List<string>();
-
-            foreach (var onLight in onLights)
+            foreach (var onLight in lightsToChange)
             {
-                var lightState = onLight.State;
-                if (lightState.On == true)
-                {
-                    if (lightState.ColorTemperature != colorTemperature)
-                    {
-                        Console.WriteLine($"{DateTime.Now}: Light { onLight.Name } switching { lightState.ColorTemperature } -> { colorTemperature }");
-                        lightIdsToChange.Add(onLight.Id);
-                    }
-                }
+                Console.WriteLine($"{DateTime.Now}: Light { onLight.Name } switching { onLight.State.ColorTemperature } -> { colorTemperature }");
             }
 
-            if (lightIdsToChange.Count > 0)
+            if (lightsToChange.Count > 0)
             {
                 var command = new LightCommand();
                 command.ColorTemperature = colorTemperature;
                 command.TransitionTime = configuration.TransitionTime;
 
-                await hueClient.SendCommandAsync(command, lightIdsToChange);
+                await hueClient.SendCommandAsync(command, lightsToChange.Select(x => x.Id).ToList());
             }
         }
 
