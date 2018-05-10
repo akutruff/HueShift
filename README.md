@@ -14,6 +14,8 @@ HueShift does the same thing but with your Phillips Hue Light bulbs.  The progra
 
 #### Install .NET Core 2 for Raspberry Pi 
 
+Get yourself a Raspberry Pi. Do the SD card thing. (Pi Zero doesn't not support arm7, so no luck there.)
+
 Taken from: [blogs.msdn](https://blogs.msdn.microsoft.com/david/2017/07/20/setting_up_raspian_and_dotnet_core_2_0_on_a_raspberry_pi/)
 ```
 sudo apt-get install curl libunwind8 gettext
@@ -24,7 +26,7 @@ sudo ln -s /opt/dotnet/dotnet /usr/local/bin
 Test the installation by typing. 
 ```dotnet --help```
 
-It may warn you about an 
+It will say something wierd about installing the SDK.  Ignore that noise.  You're good.
 
 #### Install latest build and run it.
 
@@ -35,11 +37,11 @@ cd /home/pi/HueShift
 chmod +x HueShift
 ./HueShift
 ```
-#### Hit the button on the hue bridge!  
+#### Hit the button on the Hue bridge!  
 
 The code at the moment tries three times to connect to the bridge before the program times out.  It may spit out an exception saying it can't find the bridge.  That's okay.  Just hit the button on the front of the bridge.  It will try three times and then quit.  
 
-To test it, change the color temperature of your lights.  Wait 10 seconds.  Your lights should automagically shift to blu-ish during the day, and red-ish at night.  
+If all seems okay, test it.  Change the color of your lights in the app or via Alexa.  Wait 10 seconds.  Your lights should automagically shift to blu-ish during the day, and red-ish at night.  Try it a few times, the code is checking every 10 seconds so it may override your attempt at changing the colors. (That's the point afer all.)
 
 Once you've verified it's working, hit CTRL+C to stop the program running, and then install it as a service:
 
@@ -48,7 +50,7 @@ sudo cp hueshift.service /etc/systemd/system/hueshift.service
 sudo systemctl start hueshift.service
 sudo systemctl enable hueshift.service
 ```
-Now put your Pi somewhere and leave it on and you now have an automatic sunrise and sunset machine!
+Now put your Pi somewhere, and leave it onl, augh heartily, and you now have an automatic sunrise and sunset machine!  
 
 ### Donate:
 To help pay for further development and allow those to benefit from turnkey geolocation and proxy service when free limits are reached, Bitcoin donations are accepted here:
