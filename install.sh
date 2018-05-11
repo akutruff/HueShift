@@ -1,6 +1,8 @@
 #copy current build
-curl -sSL -o HueShift.zip https://github.com/akutruff/HueShift/releases/download/0.2/HueShift.zip 
-unzip HueShift.zip -d /home/pi/HueShift
+cd /home/pi
+curl -sSL -o HueShift.zip https://github.com/akutruff/HueShift/releases/download/0.2/hue-shift.tar.gz 
+
+tar -zxvf hue-shift.tar.gz 
 
 chown -R pi:pi /home/pi/HueShift
 chmod +x /home/pi/HueShift/HueShift
