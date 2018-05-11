@@ -6,5 +6,5 @@ chown -R pi:pi /home/pi/HueShift
 chmod +x /home/pi/HueShift/HueShift
 chown pi:pi HueShift.zip
 
-echo "Now run and follow instructions:"
+echo "Now run this:"
 echo "/home/pi/HueShift/HueShift"
