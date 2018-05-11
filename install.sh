@@ -1,6 +1,6 @@
 #copy current build
 cd /home/pi
-curl -sSL -o HueShift.zip https://github.com/akutruff/HueShift/releases/download/0.2/hue-shift.tar.gz 
+curl -sSL -o hue-shift.tar.gz https://github.com/akutruff/HueShift/releases/download/0.2/hue-shift.tar.gz 
 
 tar -zxvf hue-shift.tar.gz 
 
