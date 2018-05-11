@@ -1,8 +1,25 @@
 # HueShift for the Raspberry Pi!
 
 For the lazy logged in as the pi user:
+Install .NET Core
+```
+curl -sSL https://raw.githubusercontent.com/akutruff/HueShift/master/install-dotnet.sh | sudo bash
+```
+
+Install
+
 ```
 curl -sSL https://raw.githubusercontent.com/akutruff/HueShift/master/install.sh | sudo bash
+```
+
+Run it and make sure it works.
+```
+/home/pi/HueShift/HueShift
+```
+
+Setup so it's always running even after logout
+```
+curl -sSL https://raw.githubusercontent.com/akutruff/HueShift/master/install-service.sh | sudo bash
 ```
 
 Make your Phillips Hue lights cool during the day and warm after sunset just like Flux and Apple's Night Shift.  
