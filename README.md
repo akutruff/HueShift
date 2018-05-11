@@ -11,9 +11,9 @@ Install .NET Core
 curl -sSL https://raw.githubusercontent.com/akutruff/HueShift/master/install-dotnet.sh | sudo bash
 ```
 
-Install HueShift
+Install HueShift (no sudo this time!)
 ```
-curl -sSL https://raw.githubusercontent.com/akutruff/HueShift/master/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/akutruff/HueShift/master/install.sh | bash
 ```
 
 Run it manually to authorize
