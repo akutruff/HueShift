@@ -26,7 +26,7 @@ Setup so it's always running even after logout
 curl -sSL https://raw.githubusercontent.com/akutruff/HueShift/master/install-service.sh | sudo bash
 ```
 
-#### Science 
+### Science 
 
 In order for your body to properly regulate your sleep cycle, you need to be exposed to blue light during the day and only red light at night.  This project is originally inspired from the awesome program, Flux, that I highly recommend installing on your machine right now https://justgetflux.com/.  (Flux can control Hue too, but it doesn't get the job done.) 
 
