@@ -38,5 +38,17 @@ RUN dotnet publish -c Release -o out
 
 FROM microsoft/dotnet:2.2-runtime AS runtime
 WORKDIR /app
+
+RUN mkdir -p config
+
+VOLUME /config
+
+ENV UDPPORT 6454
+
+EXPOSE ${UDPPORT}
+EXPOSE ${UDPPORT}/udp
+
 COPY --from=build /app/HueShift/out ./
-ENTRYPOINT ["dotnet", "HueShift.dll"]
+
+
+ENTRYPOINT ["dotnet", "HueShift.dll", "--configuration-file", "/config/hueshift-config.json"]
