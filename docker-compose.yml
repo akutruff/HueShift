@@ -1,0 +1,15 @@
+version: "3"
+services:
+  media-mogul:
+    build: .
+    image: akutruff/hueshift
+    container_name: hueshift
+    volumes:
+      - /home/pi/.config/hueshift:/config
+    ports:
+      - "6454:6454/udp"
+      - "6454:6454"
+    environment:
+      TZ: "America/New_York"
+    restart: always
+
