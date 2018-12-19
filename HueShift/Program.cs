@@ -16,17 +16,26 @@ using Q42.HueApi.Models.Bridge;
 using Q42.HueApi;
 using System.IO;
 using Newtonsoft.Json;
+using ArtDotNet;
+using System.Net;
+using System.Net.Sockets;
 
 namespace HueShift
 {
     public partial class Program
     {
+      
         public static int Main(string[] args)
         {
+            //Console.WriteLine(System.Environment.CurrentDirectory);
+            //RunArtnet();
+
             var app = new CommandLineApplication();
             app.ValueParsers.Add(new TimeSpanParser());
 
             app.HelpOption("-h|--help");
+
+            var configurationFilePathOption = app.Option<string>("--configuration-file", "Path to configuration file", CommandOptionType.SingleValue);
 
             var resetOption = app.Option("-r|--reset", "Clear all saved configuration to defaults.", CommandOptionType.NoValue);
             var doNotSaveConfigurationOption = app.Option("--do-not-save-config", "Do not save configuration.", CommandOptionType.NoValue);
@@ -51,6 +60,10 @@ namespace HueShift
             var pollingFrequencyOption = app.Option<TimeSpan>("-p|--polling-frequency <Time>", "How frequently should the lights be checked for the right temperature.", CommandOptionType.SingleValue);
             var transitionTimeOption = app.Option<TimeSpan>("-t|--transition-time <Time>", "How quickly should the lights fade between colors.", CommandOptionType.SingleValue);
 
+            var runArtnetBridge = app.Option<int>("--run-artnet-bridge", "Run bridge between artnet and hue.", CommandOptionType.NoValue);
+            var dmxUniverse = app.Option<int>("-u|--dmx-universe <int>", "Dmx Universe.", CommandOptionType.SingleValue);
+            var dmxStartingChannel = app.Option<int>("-c|--dmx-channel <int>", "DMX Channel.", CommandOptionType.SingleValue);
+
             app.OnExecute(async () =>
             {
                 Configuration configuration = new Configuration();
@@ -73,16 +86,17 @@ namespace HueShift
                     return -1;
                 }
 
-                string configurationFileName = @"hueShift-conf.json";
+                string configurationFilePath = configurationFilePathOption.HasValue() ? configurationFilePathOption.ParsedValue : @"hueShift-conf.json";
+
                 if (resetOption.HasValue())
                 {
-                    File.Delete(configurationFileName);
+                    File.Delete(configurationFilePath);
                     return -1;
                 }
 
-                if (File.Exists(configurationFileName))
+                if (File.Exists(configurationFilePath))
                 {
-                    configuration = JsonConvert.DeserializeObject<Configuration>(File.ReadAllText(configurationFileName));
+                    configuration = JsonConvert.DeserializeObject<Configuration>(File.ReadAllText(configurationFilePath));
                 }
 
                 if (latitudeOption.HasValue() ^ longitudeOption.HasValue())
@@ -103,7 +117,7 @@ namespace HueShift
                     {
                         configuration.PositionState = new PositionState();
                         (configuration.PositionState.Latitude, configuration.PositionState.Longitude) = await Geolocation.GetLocationFromIPAddress(configuration);
-                        TrySaveConfiguration(doNotSaveConfigurationOption, configuration, configurationFileName);
+                        TrySaveConfiguration(doNotSaveConfigurationOption, configuration, configurationFilePath);
                     }
                     catch
                     {
@@ -114,7 +128,7 @@ namespace HueShift
 
                 if (configuration.PositionState != null)
                 {
-                    Console.WriteLine($"Latitude: {configuration.PositionState.Latitude, -10} Logitude: {configuration.PositionState.Longitude, -10}");
+                    Console.WriteLine($"Latitude: {configuration.PositionState.Latitude,-10} Logitude: {configuration.PositionState.Longitude,-10}");
                 }
 
                 if (sunsetMustBeAfterOption.HasValue())
@@ -162,6 +176,7 @@ namespace HueShift
 
                     configuration.BridgeState.BridgeHostname = locatedBridges[0].IpAddress;
                 }
+
                 Console.WriteLine($"Bridge hostname: {configuration.BridgeState.BridgeHostname}");
 
                 LocalHueClient hueClient = new LocalHueClient(configuration.BridgeState.BridgeHostname);
@@ -201,11 +216,63 @@ namespace HueShift
                 {
                     hueClient.Initialize(configuration.BridgeState.BridgeApiKey);
                 }
+
+                if (string.IsNullOrEmpty(configuration.BridgeState.BridgeEntertainmentClientKey))
+                {
+                    //var registerEntertainmentResult = await hueClient.RegisterAsync("HueShift", "Bridge0", generateClientKey: true);
+                    //configuration.BridgeState.BridgeEntertainmentClientKey = registerEntertainmentResult.StreamingClientKey;
+                }
+
+                if (configuration.DMXConfiguration == null)
+                    configuration.DMXConfiguration = new DMXConfiguration();
+
+                if (configuration.DMXConfiguration.IsEnabled && String.IsNullOrEmpty(configuration.DMXConfiguration.ListeningIPAddress))
+                {
+                    string dmxListeningIPAddress;
+                    using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
+                    {
+                        socket.Connect("8.8.8.8", 65530);
+                        IPEndPoint endPoint = socket.LocalEndPoint as IPEndPoint;
+                        dmxListeningIPAddress = endPoint.Address.ToString();
+                    }
+
+                    Console.WriteLine($"Local IP for listenting for DMX: {dmxListeningIPAddress}");
+
+                    configuration.DMXConfiguration.ListeningIPAddress = dmxListeningIPAddress;
+                }
+
                 Console.WriteLine("Saving");
-                TrySaveConfiguration(doNotSaveConfigurationOption, configuration, configurationFileName);
+
+                TrySaveConfiguration(doNotSaveConfigurationOption, configuration, configurationFilePath);
                 Console.WriteLine("Starting");
 
-                await LightScheduler.ContinuallyEnforceLightTemperature(configuration, hueClient);
+                var allLights = await hueClient.GetLightsAsync();
+                var lights = allLights.ToList();
+                var idsToLights = allLights.ToDictionary(x => x.Id, x => x);
+                var idsOfLightsToExclude = configuration.IdsOfLightsToExclude.ToHashSet();
+
+                Console.WriteLine("All lights:");
+                foreach (var item in lights)
+                {
+                    Console.WriteLine($"ID: {item.Id,-4} Name: {item.Name, -20} ModelID: {item.ModelId, -10} ProductId: {item.ProductId,-10}");
+                }
+                Console.WriteLine("");
+
+                Console.WriteLine("Excluded Lights:");
+                foreach (var item in idsOfLightsToExclude)
+                {
+                    Console.WriteLine($"ID: {item,-4} Name: {idsToLights[item].Name,-20}");
+                }
+
+                //Console.WriteLine("DMX lights:");
+                //foreach (var item in lights)
+                //{
+                //    Console.WriteLine($"ID: {item.Id,-4} Name: {item.Name,-20} ModelID: {item.ModelId,-10} ProductId: {item.ProductId,-10}");
+                //}
+                //Console.WriteLine("");
+
+
+                await LightScheduler.RunLightControl(configuration, hueClient);
 
                 return -1;
             });

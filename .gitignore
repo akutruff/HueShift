@@ -1,4 +1,5 @@
 hueShift-conf.json
+hueShift-conf-lastrun.json
 
 *.swp
 *.*~

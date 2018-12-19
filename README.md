@@ -59,3 +59,6 @@ bitcoin:34TxsK9Wfd8GcjMTL3uzVkxF1WoKC9qXoW
 After you run HueShift the first time, a conf file will appear in the Hue directory.  It's pretty self explanatory if you crack it open you can edit the defaults and discovered values.  Make sure the service has been stopped before editing the file.  (It's quick and dirty code but stable.)
 
 If you have an advanced setup with your Hue running on a different subnet or if UPnP / HTTP discovery aren't working, you can crack the conf file and manually enter your hostname for the bridge.  May need to specify port 80 as well if it's not working with just the IP.
+
+### Others Work:
+The experimental DMX group control code was lifted in entirety from ![ArtDot](https://github.com/cansik/ArtNet3DotNet/tree/master/ArtDotNet)
