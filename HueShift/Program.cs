@@ -226,7 +226,7 @@ namespace HueShift
                 if (configuration.DMXConfiguration == null)
                     configuration.DMXConfiguration = new DMXConfiguration();
 
-                if (configuration.DMXConfiguration.IsEnabled && String.IsNullOrEmpty(configuration.DMXConfiguration.ListeningIPAddress))
+                if (configuration.DMXConfiguration.IsEnabled /*&& String.IsNullOrEmpty(configuration.DMXConfiguration.ListeningIPAddress)*/)
                 {
                     string dmxListeningIPAddress;
                     using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
