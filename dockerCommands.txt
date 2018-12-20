@@ -1,0 +1,2 @@
+docker build --pull -t akutruff/hueshift .
+docker run -it -p 6454:6454/tcp -p 6454:6454/udp -v /home/pi/.config/hueshift:/config akutruff/hueshift
