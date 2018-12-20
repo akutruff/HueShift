@@ -136,6 +136,7 @@ namespace HueShift
                                         lastTimeDmxPacketDetected = DateTimeOffset.Now;
                                         runningState = RunningState.DMX;
                                         Console.WriteLine("DMX Mode detected");
+                                        break;
                                     }
                                     else
                                     {
