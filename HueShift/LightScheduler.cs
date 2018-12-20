@@ -128,16 +128,24 @@ namespace HueShift
 
                                 await SetLightsToColorTemperature(hueClient, colorTemperature, configuration);
 
-                                if (!stateQueue.IsEmpty)
+                                var timeStartedWaiting = DateTimeOffset.Now;
+                                do
                                 {
-                                    lastTimeDmxPacketDetected = DateTimeOffset.Now;
-                                    runningState = RunningState.DMX;
-                                    Console.WriteLine("DMX Mode detected");
-                                }
-                                else
-                                {
-                                    await Task.Delay(timeBetweenChecks).ConfigureAwait(false);
-                                }
+                                    if (!stateQueue.IsEmpty)
+                                    {
+                                        lastTimeDmxPacketDetected = DateTimeOffset.Now;
+                                        runningState = RunningState.DMX;
+                                        Console.WriteLine("DMX Mode detected");
+                                    }
+                                    else
+                                    {
+
+                                        Thread.Sleep(configuration.DMXConfiguration.MillisToSleepBetweenQueueChecks);
+
+                                        //await Task.Delay(.0).ConfigureAwait(false);
+                                    }
+                                } while ((DateTimeOffset.Now - timeStartedWaiting) < timeBetweenChecks) ;
+
                                 break;
                             case RunningState.DMX:
         
