@@ -75,9 +75,21 @@ namespace HueShift
                 {
                     controller.Address = IPAddress.Parse(configuration.DMXConfiguration.ListeningIPAddress);
 
+                    var groups = await hueClient.GetGroupsAsync();
+
+                    var dmxControlGroupName = "DmxControlGroup";
+                    foreach (var item in groups)
+                    {
+                        if(item.Name == dmxControlGroupName)
+                        {
+                            await hueClient.DeleteGroupAsync(item.Id);
+                            Console.WriteLine("Deleting existing control group: " + item.Id);
+                        }
+                    }
+
                     var groupId = await hueClient.CreateGroupAsync(
                         configuration.DMXConfiguration.LightIdsInDmxGroup.Select(x => x.ToString()).ToList(),
-                        "DmxControlGroup",
+                        dmxControlGroupName,
                         null,
                         Q42.HueApi.Models.Groups.GroupType.LightGroup);
 
