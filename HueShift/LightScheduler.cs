@@ -23,6 +23,7 @@ using Q42.HueApi.Streaming.Models;
 
 namespace HueShift
 {
+
     public readonly struct LightState : IEquatable<LightState>
     {
         public readonly bool IsOn;
@@ -54,7 +55,7 @@ namespace HueShift
         }
     }
 
-    public class LightScheduler
+    public partial class LightScheduler
     {
         enum RunningState
         {
@@ -80,7 +81,7 @@ namespace HueShift
                     var dmxControlGroupName = "DmxControlGroup";
                     foreach (var item in groups)
                     {
-                        if(item.Name == dmxControlGroupName)
+                        if (item.Name == dmxControlGroupName)
                         {
                             await hueClient.DeleteGroupAsync(item.Id);
                             Console.WriteLine("Deleting existing control group: " + item.Id);
@@ -129,16 +130,19 @@ namespace HueShift
                     LightState lastSentLightState = new LightState();
                     Console.WriteLine("_------------------STARTING ");
 
+                    var controlState = new Dictionary<string, LightControlStatus>();
+
+                    var sunriseSunsetState = new AppState();
                     while (true)
                     {
                         switch (runningState)
                         {
                             case RunningState.HueShift:
-                                var now = DateTimeOffset.Now;
+                                var currentTime = DateTimeOffset.Now;
 
-                                int colorTemperature = GetTargetColorTemperature(now, configuration);
+                                int colorTemperature = GetTargetColorTemperature(currentTime, configuration);
 
-                                await SetLightsToColorTemperature(hueClient, colorTemperature, configuration);
+                                await PerformDayNightCycling(hueClient, colorTemperature, currentTime, sunriseSunsetState, configuration);
 
                                 var timeStartedWaiting = DateTimeOffset.Now;
                                 do
@@ -157,11 +161,11 @@ namespace HueShift
 
                                         //await Task.Delay(.0).ConfigureAwait(false);
                                     }
-                                } while ((DateTimeOffset.Now - timeStartedWaiting) < timeBetweenChecks) ;
+                                } while ((DateTimeOffset.Now - timeStartedWaiting) < timeBetweenChecks);
 
                                 break;
                             case RunningState.DMX:
-        
+
                                 var transitionDuration = configuration.DMXConfiguration.TransitionTime;
                                 var minWaitDurationBetweenApiCalls = configuration.DMXConfiguration.MinWaitDurationBetweenApiCalls;
 
@@ -187,7 +191,7 @@ namespace HueShift
                                     timeSinceLastSend = DateTimeOffset.Now - lastApiSentTime;
                                 }
 
-                                if(!haveReceivedNextDMXPacket)
+                                if (!haveReceivedNextDMXPacket)
                                 {
                                     LightState latestLightState;
                                     while (!stateQueue.TryDequeue(out latestLightState))
@@ -204,7 +208,7 @@ namespace HueShift
                                     mostCurrentLightState = latestLightState;
                                     haveReceivedNextDMXPacket = true;
                                     lastTimeDmxPacketDetected = DateTime.Now;
-                                }               
+                                }
 
                                 if (runningState == RunningState.DMX)
                                 {
@@ -242,50 +246,118 @@ namespace HueShift
             });
         }
 
-        //public static void RunArtnet(Configuration configuration)
-        //{
-        //    var subUni = configuration.DMXConfiguration.DMXUniverse;
-
-        //    Console.WriteLine("ArtDotNet Client");
-        //    var controller = new ArtNetController();
-
-        //    controller.Address = IPAddress.Parse(configuration.DMXConfiguration.ListeningIPAddress);
-
-        //    controller.DmxPacketReceived += (sender, packet) =>
-        //    {
-        //        if (packet.SubUniverse != subUni)
-        //            return;
-
-        //        Console.Clear();
-        //        Console.WriteLine("ArtNet Universe " + subUni);
-
-        //        for (int i = 0; i < packet.Length; i++)
-        //        {
-        //            if (i % 24 == 0)
-        //                Console.WriteLine();
-
-        //            Console.Write(string.Format("{000:00} ", packet.Data[i]));
-        //        }
-        //    };
-
-        //    controller.Start();
-
-        //}
-
         static float map(float s, float a1, float a2, float b1, float b2)
         {
             return b1 + (s - a1) * (b2 - b1) / (a2 - a1);
         }
 
-        private static async Task SetLightsToColorTemperature(HueClient hueClient, int colorTemperature, Configuration configuration)
+        private static async Task PerformDayNightCycling(HueClient hueClient, int colorTemperature, DateTimeOffset currentTime, AppState appState, Configuration configuration)
         {
             var allLights = await hueClient.GetLightsAsync();
             var lights = allLights.ToList();
-            var nameToLights = allLights.ToDictionary(x => x.Name, x => x);
-            var namesOfLightsToExclude = configuration.IdsOfLightsToExclude.ToHashSet();
-            var lightsToChange = allLights.Where(x => x.State.On && x.State.ColorTemperature != colorTemperature && !namesOfLightsToExclude.Contains(x.Name))
-                .ToList();
 
+            var idToLights = allLights.ToDictionary(x => x.Id, x => x);
+
+            var nameToLights = allLights.ToDictionary(x => x.Name, x => x);
+            var namesOfLightsToExclude = configuration.NamesOfLightsToExclude.ToHashSet();
+            var lightsAvailableToChange = allLights.Where(x => x.State.On && x.State.ColorTemperature != colorTemperature && !namesOfLightsToExclude.Contains(x.Name));
+
+            var lightsToChange = new List<Light>();
+
+            foreach (var light in lights)
+            {
+                if (!appState.Lights.TryGetValue(light.Id, out var state))
+                {
+                    state = appState.Lights[light.Id] = new LightControlStatus(DateTimeOffset.MinValue, currentTime, DateTimeOffset.MinValue, DateTimeOffset.MinValue, TimeSpan.Zero, LightControlState.Off, light);
+                }
+            }
+
+            var sunriseAndSunset = GetSunriseAndSunset(currentTime, configuration);
+
+            var shouldDoSlowTransitionAtSunriseOrSunset = (appState.LastRunTime < sunriseAndSunset.sunrise && currentTime > sunriseAndSunset.sunrise) || (appState.LastRunTime < sunriseAndSunset.sunset && currentTime > sunriseAndSunset.sunset);
+
+            var transitionTimeForBatch = configuration.TransitionTime;
+
+            if (shouldDoSlowTransitionAtSunriseOrSunset)
+            {
+                Console.WriteLine($"{DateTime.Now}: all lights -> { colorTemperature }");
+
+                transitionTimeForBatch = configuration.TransitionTimeAtSunriseAndSunset;
+                foreach (var light in lights)
+                {
+                    var state = appState.Lights[light.Id];
+                    if (!light.State.On)
+                    {
+                        state.LightControlState = LightControlState.Off;
+                        state.HueShiftTookControlTime = DateTimeOffset.MinValue;
+                        state.TransitionRequestedTime = DateTimeOffset.MinValue;
+                        state.RequestedTransitionDuration = TimeSpan.Zero;
+                        state.DetectedOnTime = DateTimeOffset.MinValue;
+                    }
+                    else
+                    {
+                        lightsToChange.Add(light);
+                        state.LightControlState = LightControlState.Transitioning;
+                        state.HueShiftTookControlTime = currentTime;
+                        state.TransitionRequestedTime = currentTime;
+                        state.RequestedTransitionDuration = configuration.TransitionTimeAtSunriseAndSunset;
+                        state.DetectedOnTime = currentTime;
+                    }
+                }
+            }
+            else
+            {
+                foreach (var light in lights)
+                {
+                    var state = appState.Lights[light.Id];
+
+                    if (!light.State.On)
+                    {
+                        state.LightControlState = LightControlState.Off;
+                        state.HueShiftTookControlTime = DateTimeOffset.MinValue;
+                        state.TransitionRequestedTime = DateTimeOffset.MinValue;
+                        state.RequestedTransitionDuration = TimeSpan.Zero;
+                        state.DetectedOnTime = DateTimeOffset.MinValue;
+                    }
+                    else
+                    {
+                        switch (state.LightControlState)
+                        {
+                            case LightControlState.Off:
+                                lightsToChange.Add(light);
+                                state.LightControlState = LightControlState.Transitioning;
+                                state.HueShiftTookControlTime = currentTime;
+                                state.TransitionRequestedTime = currentTime;
+                                state.RequestedTransitionDuration = configuration.TransitionTime;
+                                state.DetectedOnTime = currentTime;
+                                break;
+                            case LightControlState.Transitioning:
+                                TimeSpan transitionTimeElapsed = currentTime - state.TransitionRequestedTime;
+                                var allowedTolerance = TimeSpan.FromSeconds(10);
+
+                                bool hasTransitionTimeElapsed = transitionTimeElapsed > (state.RequestedTransitionDuration + allowedTolerance);
+
+                                if ((light.State.ColorTemperature == colorTemperature) || hasTransitionTimeElapsed)
+                                {
+                                    state.LightControlState = LightControlState.HueShiftAutomated;
+                                    state.TransitionRequestedTime = DateTimeOffset.MinValue;
+                                    state.RequestedTransitionDuration = TimeSpan.Zero;
+                                }
+                                break;
+                            case LightControlState.HueShiftAutomated:
+                                if (light.State.ColorTemperature != colorTemperature)
+                                {
+                                    state.LightControlState = LightControlState.ManualControl;                                 
+                                }
+                                break;
+                            case LightControlState.ManualControl:
+                                break;
+                        }
+                    }
+                }                
+            }
+            
+            appState.LastRunTime = currentTime;
             foreach (var onLight in lightsToChange)
             {
                 Console.WriteLine($"{DateTime.Now}: Light { onLight.Name } switching { onLight.State.ColorTemperature } -> { colorTemperature }");
@@ -295,7 +367,7 @@ namespace HueShift
             {
                 var command = new LightCommand();
                 command.ColorTemperature = colorTemperature;
-                command.TransitionTime = configuration.TransitionTime;
+                command.TransitionTime = transitionTimeForBatch;
 
                 await hueClient.SendCommandAsync(command, lightsToChange.Select(x => x.Id).ToList());
             }
@@ -303,15 +375,11 @@ namespace HueShift
 
         private static int GetTargetColorTemperature(DateTimeOffset currentTime, Configuration configuration)
         {
-            SolarTimes solarTimes = new SolarTimes(currentTime, configuration.PositionState.Latitude, configuration.PositionState.Longitude);
-
-            //These are local DateTimes Kind: Unspecificied 
-            DateTimeOffset sunrise = ClampTime(solarTimes.Sunrise, configuration.SunriseMustBeAfter, configuration.SunriseMustBeBeBefore);
-            DateTimeOffset sunset = ClampTime(solarTimes.Sunset, configuration.SunsetMustBeAfter, configuration.SunsetMustBeBeBefore);
+            var timeBounds = GetSunriseAndSunset(currentTime, configuration);
 
             int colorTemperature;
 
-            if (currentTime < sunrise || currentTime > sunset)
+            if (currentTime < timeBounds.sunrise || currentTime > timeBounds.sunset)
             {
                 colorTemperature = configuration.NightColorTemperature;
             }
@@ -321,6 +389,17 @@ namespace HueShift
             }
 
             return colorTemperature;
+        }
+
+        private static (DateTimeOffset sunrise, DateTimeOffset sunset) GetSunriseAndSunset(DateTimeOffset currentTime, Configuration configuration)
+        {
+            SolarTimes solarTimes = new SolarTimes(currentTime, configuration.PositionState.Latitude, configuration.PositionState.Longitude);
+
+            //These are local DateTimes Kind: Unspecificied 
+            var sunrise = ClampTime(solarTimes.Sunrise, configuration.SunriseMustBeAfter, configuration.SunriseMustBeBeBefore);
+            var sunset = ClampTime(solarTimes.Sunset, configuration.SunsetMustBeAfter, configuration.SunsetMustBeBeBefore);
+
+            return (sunrise, sunset);
         }
 
         public static DateTimeOffset ClampTime(DateTimeOffset time, TimeSpan minTimeOfDay, TimeSpan maxTimeOfDay)

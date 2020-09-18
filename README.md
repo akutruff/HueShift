@@ -1,12 +1,14 @@
-# HueShift for the Raspberry Pi!
+# HueShift 
 
-Make your Phillips Hue lights cool during the day and warm after sunset just like Flux and Apple's Night Shift.  
+Make your Phillips Hue lights cool during the day and warm after sunset just like Flux and Apple's Night Shift.  Runs comfortably in Docker, and even on a Raspberry Pi.
 
-Install on a Raspberry Pi, and your house rises and sets with the sun.  When a light gets turned on, it will automatically change to the right color within 10 seconds.  (Built on .NET Core 2 so this will run on Windows and Linux as well!)
+Install on a Raspberry Pi, and your house rises and sets with the sun.  When a light gets turned on, it will automatically change to the right color within X seconds.  (Built on .NET Core 2 so this will run on Windows and Linux as well!)
 
 Log in as the pi user:
 
-Install .NET Core
+Install Docker.
+Pull this repository.
+
 ```
 curl -sSL https://raw.githubusercontent.com/akutruff/HueShift/master/install-dotnet.sh | sudo bash
 ```

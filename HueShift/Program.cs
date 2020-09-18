@@ -249,7 +249,7 @@ namespace HueShift
                 var allLights = await hueClient.GetLightsAsync();
                 var lights = allLights.ToList();
                 var idsToLights = allLights.ToDictionary(x => x.Id, x => x);
-                var idsOfLightsToExclude = configuration.IdsOfLightsToExclude.ToHashSet();
+                var idsOfLightsToExclude = configuration.NamesOfLightsToExclude.ToHashSet();
 
                 Console.WriteLine("All lights:");
                 foreach (var item in lights)

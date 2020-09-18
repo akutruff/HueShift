@@ -43,6 +43,7 @@ namespace HueShift
     public class Configuration
     {
         public TimeSpan TransitionTime = TimeSpan.FromSeconds(5);
+        public TimeSpan TransitionTimeAtSunriseAndSunset = TimeSpan.FromSeconds(120);
         public TimeSpan PollingFrequency = TimeSpan.FromSeconds(6);
 
         public int DayColorTemperature = (int)ColorTemperature.Blue;
@@ -57,9 +58,9 @@ namespace HueShift
         public TimeSpan SunriseMustBeAfter = new TimeSpan(0, 0, 0);
         public TimeSpan SunriseMustBeBeBefore = new TimeSpan(10, 0, 0);
         public TimeSpan SunsetMustBeAfter = new TimeSpan(18, 0, 0);
-        public TimeSpan SunsetMustBeBeBefore = new TimeSpan(19, 30, 0);
+        public TimeSpan SunsetMustBeBeBefore = new TimeSpan(19, 30, 0);        
 
-        public List<string> IdsOfLightsToExclude = new List<string>();
+        public List<string> NamesOfLightsToExclude = new List<string>();
 
         public DMXConfiguration DMXConfiguration = null;
     }
