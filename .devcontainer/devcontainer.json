@@ -10,7 +10,8 @@
 			// Options
 			"INSTALL_NODE": "true",
 			"NODE_VERSION": "lts/*",
-			"INSTALL_AZURE_CLI": "false"
+			"INSTALL_AZURE_CLI": "false",
+			"TZ": "America/New_York",
 		}
 	},
 

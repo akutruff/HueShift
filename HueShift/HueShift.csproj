@@ -17,9 +17,4 @@
   <ItemGroup>
     <ProjectReference Include="..\ArtDotNet\ArtDotNet.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <None Update="hueShift-conf.json">
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
 </Project>
