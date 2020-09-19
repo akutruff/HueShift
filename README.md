@@ -31,11 +31,19 @@ edit ```docker-compose.yml``` file and change to the timezone that's best for yo
 docker-compose up -d
 ```
 
+Now hueshift will run and automatically startup when your pi starts.
+
+See what's happening by typing this:
+
+```
+docker logs -f hueshift
+```
+
 #### Hit the button on the Hue bridge!  
 
 The code at the moment tries to connect to the bridge before the program times out.  It may spit out an exception saying it can't find the bridge.  That's okay.  Just hit the button on the front of the bridge.  It will try three times and then quit.  
 
-If all seems okay, test it.  Change the color of your lights in the Hue app or via Alexa.  Wait 10 seconds.  Your lights should automagically shift to blu-ish during the day, and red-ish at night.  Try it a few times, the code is checking every 10 seconds so it may override your attempt at changing the colors. (That's the point afer all.)
+If all seems okay, test it.  Change the color of your lights in the Hue app or via Alexa.  Wait 10 seconds.  Turn your lights off.  Wait 10 seconds.  Turn them back on again.  Your lights should automagically shift to white during the day, and red-ish at night.  The code is checking every 2 seconds so it may override your attempt at changing the colors. (That's the point afer all.)
 
 Now put your Pi somewhere, and leave it on, laugh heartily, and you now have an automatic sunrise and sunset machine!  
 
