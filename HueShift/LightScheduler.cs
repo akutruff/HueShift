@@ -280,7 +280,8 @@ namespace HueShift
 
             if (shouldDoSlowTransitionAtSunriseOrSunset)
             {
-                Console.WriteLine($"{DateTime.Now}: all lights -> { colorTemperature }");
+                Console.WriteLine($"{DateTime.Now}: all lights -> { colorTemperature }.  sunrise: {sunriseAndSunset.sunrise} sunset: {sunriseAndSunset.sunrise}");
+                Console.WriteLine();
 
                 transitionTimeForBatch = configuration.TransitionTimeAtSunriseAndSunset;
                 foreach (var light in lights)
@@ -356,7 +357,7 @@ namespace HueShift
                     }
                 }                
             }
-            
+
             appState.LastRunTime = currentTime;
             foreach (var onLight in lightsToChange)
             {
