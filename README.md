@@ -25,7 +25,7 @@ mkdir hueshift && cd hueshift
 wget "https://raw.githubusercontent.com/akutruff/HueShift/master/docker-compose.yml"
 ```
 
-edit ```docker-compose.yml``` file and change to the timezone that's best for you this [list](https://docs.diladele.com/docker/timezones.html)
+edit ```docker-compose.yml``` file and change your timze.  See this [list](https://docs.diladele.com/docker/timezones.html).
 
 ```
 docker-compose up -d
@@ -56,4 +56,4 @@ After you run HueShift the first time, a conf file will appear in the Hue direct
 If you have an advanced setup with your Hue running on a different subnet or if UPnP / HTTP discovery aren't working, you can crack the conf file and manually enter your hostname for the bridge.  May need to specify port 80 as well if it's not working with just the IP.
 
 ### Others Work:
-The experimental DMX group control code was lifted in entirety from ![ArtDot](https://github.com/cansik/ArtNet3DotNet/tree/master/ArtDotNet)
+The experimental DMX group control code was lifted in entirety from [ArtDot](https://github.com/cansik/ArtNet3DotNet/tree/master/ArtDotNet)
