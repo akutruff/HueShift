@@ -1,32 +1,8 @@
 # HueShift 
 
-Make your Phillips Hue lights cool during the day and warm after sunset just like Flux and Apple's Night Shift.  Runs comfortably in Docker, and even on a Raspberry Pi.
+Make your Phillips Hue lights cool during the day and warm after sunset just like Flux and Apple's Night Shift.  Runs comfortably in Docker on a Raspberry Pi.
 
-Install on a Raspberry Pi, and your house rises and sets with the sun.  When a light gets turned on, it will automatically change to the right color within X seconds.  (Built on .NET Core 2 so this will run on Windows and Linux as well!)
-
-Log in as the pi user:
-
-Install Docker.
-Pull this repository.
-
-```
-curl -sSL https://raw.githubusercontent.com/akutruff/HueShift/master/install-dotnet.sh | sudo bash
-```
-
-Install HueShift (no sudo this time!)
-```
-curl -sSL https://raw.githubusercontent.com/akutruff/HueShift/master/install.sh | bash
-```
-
-Run it manually to authorize
-```
-/home/pi/HueShift/HueShift
-```
-
-Setup so it's always running even after logout
-```
-curl -sSL https://raw.githubusercontent.com/akutruff/HueShift/master/install-service.sh | sudo bash
-```
+Install on a Raspberry Pi, and your house rises and sets with the sun.  When a light gets turned on, it will automatically change to the right color within X seconds.  (Built on .NET Core so this will run on Windows and Linux as well!) 
 
 ### Science 
 
@@ -36,7 +12,22 @@ HueShift automatically geolocates against your IP address and continually calcul
 
 ## Instructions for Raspberry Pi:
 
-Get yourself a Raspberry Pi. Do the SD card thing. (Pi Zero doesn't support arm7, so no luck there. Sorry, folks.)
+Log in as the pi user:
+
+Install Docker and grab the compose file.
+
+```
+sudo apt update
+sudo apt install -y docker docker-compose
+mkdir hueshift && cd hueshift
+wget "https://raw.githubusercontent.com/akutruff/HueShift/master/docker-compose.yml"
+```
+
+edit ```docker-compose.yml``` file and change to the timezone that's best for you this [list](https://docs.diladele.com/docker/timezones.html)
+
+```
+docker-compose up -d
+```
 
 #### Hit the button on the Hue bridge!  
 
@@ -46,17 +37,9 @@ If all seems okay, test it.  Change the color of your lights in the Hue app or v
 
 Now put your Pi somewhere, and leave it on, laugh heartily, and you now have an automatic sunrise and sunset machine!  
 
-### Donate:
-To help pay for further development and allow those to benefit from turnkey geolocation and proxy service when free limits are reached, Bitcoin donations are accepted here:
-
-bitcoin:34TxsK9Wfd8GcjMTL3uzVkxF1WoKC9qXoW
-
-![Donate!](https://github.com/akutruff/HueShift/blob/master/img/donate.png)
-
-
 ### Customization:
 
-`/home/pi/HueShift/hueShift-conf.json`
+`/home/pi/.config/hueShift-conf.json`
 
 After you run HueShift the first time, a conf file will appear in the Hue directory.  It's pretty self explanatory if you crack it open you can edit the defaults and discovered values.  Make sure the service has been stopped before editing the file.  (It's quick and dirty code but stable.)
 
