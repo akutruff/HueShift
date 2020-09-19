@@ -4,13 +4,15 @@ Make your Phillips Hue lights cool during the day and warm after sunset just lik
 
 Install on a Raspberry Pi, and your house rises and sets with the sun.  When a light gets turned on, it will automatically change to the right color within X seconds.  (Built on .NET Core so this will run on Windows and Linux as well!) 
 
+If you wish to override the color temperature change, just change the light color after you turn on your light.  HueShift detects that the color has changed and will stop controlling the light until you turn it off again or the next sunrise or sunset occurs.  
+
 ### Science 
 
 In order for your body to properly regulate your sleep cycle, you need to be exposed to blue light during the day and only red light at night.  This project is originally inspired from the awesome program, Flux, that I highly recommend installing on your machine right now https://justgetflux.com/.  (Flux can control Hue too, but it doesn't get the job done.) 
 
 HueShift automatically geolocates against your IP address and continually calculates sunrise and sunset for your latitude and longitude.  During the daytime, your bulbs are forced to be as cool as possible.  After sunset, they are as red as possible. There's lots of configuration you can do through the command line or the generated configuration file.
 
-## Instructions for Raspberry Pi:
+## Setup Instructions for Raspberry Pi:
 
 Log in as the pi user:
 
@@ -39,7 +41,7 @@ Now put your Pi somewhere, and leave it on, laugh heartily, and you now have an 
 
 ### Customization:
 
-`/home/pi/.config/hueShift-conf.json`
+`/home/pi/.config/hueshift-conf.json`
 
 After you run HueShift the first time, a conf file will appear in the Hue directory.  It's pretty self explanatory if you crack it open you can edit the defaults and discovered values.  Make sure the service has been stopped before editing the file.  (It's quick and dirty code but stable.)
 
