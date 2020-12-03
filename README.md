@@ -2,7 +2,7 @@
 
 Make your Phillips Hue lights cool during the day and warm after sunset just like Flux and Apple's Night Shift.  Runs comfortably in Docker on a Raspberry Pi.
 
-Install on a Raspberry Pi, and your house rises and sets with the sun.  When a light gets turned on, it will automatically change to the right color within 2 seconds.  (Built on .NET Core so this will run on Windows and Linux as well!) 
+Install on a Raspberry Pi, and your house rises and sets with the sun.  When a light gets turned on, it will automatically change to the right color within 2 seconds. 
 
 If you wish to override the color temperature change, just change the light color after you turn on your light.  HueShift detects that the color has changed and will stop controlling the light until you turn it off again or the next sunrise or sunset occurs.  
 
