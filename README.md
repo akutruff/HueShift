@@ -25,7 +25,7 @@ mkdir hueshift && cd hueshift
 wget "https://raw.githubusercontent.com/akutruff/HueShift/master/docker-compose.yml"
 ```
 
-edit ```docker-compose.yml``` file and change your timze.  See this [list](https://docs.diladele.com/docker/timezones.html).
+edit ```docker-compose.yml``` file and change your timzone.  See this [list](https://docs.diladele.com/docker/timezones.html).
 
 ```
 docker-compose up -d
@@ -33,10 +33,25 @@ docker-compose up -d
 
 Now hueshift will run and automatically startup when your pi starts.
 
+Hit the button on your Hue bridge now.
+
 See what's happening by typing this:
 
 ```
 docker logs -f hueshift
+```
+
+You'll be able to see if there are any errors.  
+
+To try everything again:
+
+```
+docker-compose restart
+```
+
+To stop forever:
+```
+docker-compose down
 ```
 
 #### Hit the button on the Hue bridge!  
