@@ -88,11 +88,11 @@ namespace HueShift
                         }
                     }
 
-                    var groupId = await hueClient.CreateGroupAsync(
-                        configuration.DMXConfiguration.LightIdsInDmxGroup.Select(x => x.ToString()).ToList(),
-                        dmxControlGroupName,
-                        null,
-                        Q42.HueApi.Models.Groups.GroupType.LightGroup);
+                    // var groupId = await hueClient.CreateGroupAsync(
+                    //     configuration.DMXConfiguration.LightIdsInDmxGroup.Select(x => x.ToString()).ToList(),
+                    //     dmxControlGroupName,
+                    //     null,
+                    //     Q42.HueApi.Models.Groups.GroupType.LightGroup);
 
                     var stateQueue = new ConcurrentQueue<LightState>();
 
@@ -127,7 +127,7 @@ namespace HueShift
                     var lastApiSentTime = DateTimeOffset.MinValue;
                     var lastTimeDmxPacketDetected = DateTimeOffset.MinValue;
 
-                    LightState lastSentLightState = new LightState();
+                    // LightState lastSentLightState = new LightState();
                     Console.WriteLine("_------------------STARTING ");
 
                     var controlState = new Dictionary<string, LightControlStatus>();
@@ -164,82 +164,84 @@ namespace HueShift
                                 } while ((DateTimeOffset.Now - timeStartedWaiting) < timeBetweenChecks);
 
                                 break;
-                            case RunningState.DMX:
-
-                                var transitionDuration = configuration.DMXConfiguration.TransitionTime;
-                                var minWaitDurationBetweenApiCalls = configuration.DMXConfiguration.MinWaitDurationBetweenApiCalls;
-
-                                var timeSinceLastSend = DateTimeOffset.Now - lastApiSentTime;
-
-                                var timeSinceLastReceivedDMXPacket = DateTimeOffset.Now - lastTimeDmxPacketDetected;
-
-                                LightState mostCurrentLightState = new LightState();
-
-                                bool haveReceivedNextDMXPacket = false;
-                                while (timeSinceLastSend < minWaitDurationBetweenApiCalls)
-                                {
-                                    Thread.Sleep(configuration.DMXConfiguration.MillisToSleepBetweenQueueChecks);
-
-                                    LightState latestLightState;
-                                    while (stateQueue.TryDequeue(out latestLightState))
-                                    {
-                                        mostCurrentLightState = latestLightState;
-                                        haveReceivedNextDMXPacket = true;
-                                        lastTimeDmxPacketDetected = DateTime.Now;
-                                    }
-
-                                    timeSinceLastSend = DateTimeOffset.Now - lastApiSentTime;
-                                }
-
-                                if (!haveReceivedNextDMXPacket)
-                                {
-                                    LightState latestLightState;
-                                    while (!stateQueue.TryDequeue(out latestLightState))
-                                    {
-                                        Thread.Sleep(configuration.DMXConfiguration.MillisToSleepBetweenQueueChecks);
-
-                                        if ((DateTimeOffset.Now - lastTimeDmxPacketDetected) > configuration.DMXConfiguration.TimeAfterLastDmxPacketToReturnToShifting)
-                                        {
-                                            runningState = RunningState.HueShift;
-                                            break;
-                                        }
-                                    }
-
-                                    mostCurrentLightState = latestLightState;
-                                    haveReceivedNextDMXPacket = true;
-                                    lastTimeDmxPacketDetected = DateTime.Now;
-                                }
-
-                                if (runningState == RunningState.DMX)
-                                {
-                                    if (!mostCurrentLightState.Equals(lastSentLightState))
-                                    {
-                                        Console.WriteLine();
-                                        var command = new LightCommand();
-
-                                        if (mostCurrentLightState.Brightness != lastSentLightState.Brightness)
-                                            command.Brightness = mostCurrentLightState.Brightness;
-
-                                        //if (latest.ColorTemperature != last.ColorTemperature)
-                                        //    command.ColorTemperature = (int)map(latest.ColorTemperature, 0, 255, (float)ColorTemperature.Blue, (float)ColorTemperature.Red);
-
-                                        command.TransitionTime = transitionDuration;
-
-                                        Console.Write($"Setting: {mostCurrentLightState.IsOn} {mostCurrentLightState.Brightness} {mostCurrentLightState.ColorTemperature}");
-
-                                        var hueResults = await hueClient.SendGroupCommandAsync(command, groupId);
-
-                                        foreach (var error in hueResults.Errors)
-                                        {
-                                            Console.WriteLine($"Error: {error}");
-                                        }
-
-                                        lastApiSentTime = DateTimeOffset.Now;
-                                        lastSentLightState = mostCurrentLightState;
-                                    }
-                                }
-
+                            default:
                                 break;
+                                // case RunningState.DMX:
+
+                                //     var transitionDuration = configuration.DMXConfiguration.TransitionTime;
+                                //     var minWaitDurationBetweenApiCalls = configuration.DMXConfiguration.MinWaitDurationBetweenApiCalls;
+
+                                //     var timeSinceLastSend = DateTimeOffset.Now - lastApiSentTime;
+
+                                //     var timeSinceLastReceivedDMXPacket = DateTimeOffset.Now - lastTimeDmxPacketDetected;
+
+                                //     LightState mostCurrentLightState = new LightState();
+
+                                //     bool haveReceivedNextDMXPacket = false;
+                                //     while (timeSinceLastSend < minWaitDurationBetweenApiCalls)
+                                //     {
+                                //         Thread.Sleep(configuration.DMXConfiguration.MillisToSleepBetweenQueueChecks);
+
+                                //         LightState latestLightState;
+                                //         while (stateQueue.TryDequeue(out latestLightState))
+                                //         {
+                                //             mostCurrentLightState = latestLightState;
+                                //             haveReceivedNextDMXPacket = true;
+                                //             lastTimeDmxPacketDetected = DateTime.Now;
+                                //         }
+
+                                //         timeSinceLastSend = DateTimeOffset.Now - lastApiSentTime;
+                                //     }
+
+                                //     if (!haveReceivedNextDMXPacket)
+                                //     {
+                                //         LightState latestLightState;
+                                //         while (!stateQueue.TryDequeue(out latestLightState))
+                                //         {
+                                //             Thread.Sleep(configuration.DMXConfiguration.MillisToSleepBetweenQueueChecks);
+
+                                //             if ((DateTimeOffset.Now - lastTimeDmxPacketDetected) > configuration.DMXConfiguration.TimeAfterLastDmxPacketToReturnToShifting)
+                                //             {
+                                //                 runningState = RunningState.HueShift;
+                                //                 break;
+                                //             }
+                                //         }
+
+                                //         mostCurrentLightState = latestLightState;
+                                //         haveReceivedNextDMXPacket = true;
+                                //         lastTimeDmxPacketDetected = DateTime.Now;
+                                //     }
+
+                                //     if (runningState == RunningState.DMX)
+                                //     {
+                                //         if (!mostCurrentLightState.Equals(lastSentLightState))
+                                //         {
+                                //             Console.WriteLine();
+                                //             var command = new LightCommand();
+
+                                //             if (mostCurrentLightState.Brightness != lastSentLightState.Brightness)
+                                //                 command.Brightness = mostCurrentLightState.Brightness;
+
+                                //             //if (latest.ColorTemperature != last.ColorTemperature)
+                                //             //    command.ColorTemperature = (int)map(latest.ColorTemperature, 0, 255, (float)ColorTemperature.Blue, (float)ColorTemperature.Red);
+
+                                //             command.TransitionTime = transitionDuration;
+
+                                //             Console.Write($"Setting: {mostCurrentLightState.IsOn} {mostCurrentLightState.Brightness} {mostCurrentLightState.ColorTemperature}");
+
+                                //             var hueResults = await hueClient.SendGroupCommandAsync(command, groupId);
+
+                                //             foreach (var error in hueResults.Errors)
+                                //             {
+                                //                 Console.WriteLine($"Error: {error}");
+                                //             }
+
+                                //             lastApiSentTime = DateTimeOffset.Now;
+                                //             lastSentLightState = mostCurrentLightState;
+                                //         }
+                                //     }
+
+                                //     break;
                         }
                     }
                 }
@@ -348,14 +350,14 @@ namespace HueShift
                             case LightControlState.HueShiftAutomated:
                                 if (light.State.ColorTemperature != colorTemperature)
                                 {
-                                    state.LightControlState = LightControlState.ManualControl;                                 
+                                    state.LightControlState = LightControlState.ManualControl;
                                 }
                                 break;
                             case LightControlState.ManualControl:
                                 break;
                         }
                     }
-                }                
+                }
             }
 
             appState.LastRunTime = currentTime;
