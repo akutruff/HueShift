@@ -22,7 +22,7 @@ RUN mkdir -p config
 
 VOLUME /config
 
-ENV UDPPORT 6454
+ENV UDPPORT=6454
 
 EXPOSE ${UDPPORT}
 EXPOSE ${UDPPORT}/udp
