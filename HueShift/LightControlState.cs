@@ -1,5 +1,6 @@
 using System;
-using Q42.HueApi;
+using HueApi;
+using HueApi.Models;
 
 namespace HueShift
 {

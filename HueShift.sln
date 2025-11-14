@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HueShift", "HueShift\HueShift.csproj", "{CF52CE67-738B-87C4-4799-4DB8159EF37A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ArtDotNet", "ArtDotNet\ArtDotNet.csproj", "{11490ACE-D64B-420F-2B5C-99A74DAC5331}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{CF52CE67-738B-87C4-4799-4DB8159EF37A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CF52CE67-738B-87C4-4799-4DB8159EF37A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CF52CE67-738B-87C4-4799-4DB8159EF37A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CF52CE67-738B-87C4-4799-4DB8159EF37A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{11490ACE-D64B-420F-2B5C-99A74DAC5331}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{11490ACE-D64B-420F-2B5C-99A74DAC5331}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{11490ACE-D64B-420F-2B5C-99A74DAC5331}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{11490ACE-D64B-420F-2B5C-99A74DAC5331}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {DC4D8E25-D065-4D46-A7C4-E19412754E84}
+	EndGlobalSection
+EndGlobal

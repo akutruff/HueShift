@@ -12,8 +12,6 @@ using System.Threading;
 using Innovative.SolarCalculator;
 using McMaster.Extensions.CommandLineUtils;
 
-using Q42.HueApi;
-
 namespace HueShift
 {
     public static class AsyncUtils

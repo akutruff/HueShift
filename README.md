@@ -25,7 +25,7 @@ mkdir hueshift && cd hueshift
 wget "https://raw.githubusercontent.com/akutruff/HueShift/master/docker-compose.yml"
 ```
 
-edit ```docker-compose.yml``` file and change your timzone.  See this [list](https://docs.diladele.com/docker/timezones.html).
+edit ```docker-compose.yml``` file and change your timzone and latitude, longitude, and optionally set your bridge host manually without auto discovery.  See this [list](https://docs.diladele.com/docker/timezones.html).
 
 ```
 docker-compose up -d

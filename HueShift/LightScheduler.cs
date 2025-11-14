@@ -1,25 +1,16 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
-using System.Net.Sockets;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using ArtDotNet;
 using Innovative.SolarCalculator;
 
-using Q42.HueApi;
-using Q42.HueApi.ColorConverters;
-using Q42.HueApi.Streaming;
-using Q42.HueApi.Streaming.Effects;
-using Q42.HueApi.Streaming.Effects.Examples;
-using Q42.HueApi.Streaming.Extensions;
-using Q42.HueApi.Streaming.Models;
-
+using HueApi;
+using HueApi.Models.Requests;
+using HueApi.Models;
 
 namespace HueShift
 {
@@ -63,7 +54,7 @@ namespace HueShift
             HueShift
         }
 
-        public static async Task RunLightControl(Configuration configuration, HueClient hueClient)
+        public static async Task RunLightControl(Configuration configuration, LocalHueApi hueApi)
         {
             var timeBetweenChecks = new TimeSpan(Math.Max(configuration.TransitionTime.Ticks, configuration.PollingFrequency.Ticks));
 
@@ -76,15 +67,15 @@ namespace HueShift
                 {
                     controller.Address = IPAddress.Parse(configuration.DMXConfiguration.ListeningIPAddress);
 
-                    var groups = await hueClient.GetGroupsAsync();
+                    var groups = await hueApi.GroupedLight.GetAllAsync();
 
                     var dmxControlGroupName = "DmxControlGroup";
-                    foreach (var item in groups)
+                    foreach (var item in groups.Data)
                     {
-                        if (item.Name == dmxControlGroupName)
+                        if (item.Metadata?.Name == dmxControlGroupName)
                         {
-                            await hueClient.DeleteGroupAsync(item.Id);
-                            Console.WriteLine("Deleting existing control group: " + item.Id);
+                            //TODO: figure out how to delete groups via HueApi
+                            throw new InvalidOperationException("DMX Control Group already exists.  Please delete it first.");
                         }
                     }
 
@@ -142,7 +133,7 @@ namespace HueShift
 
                                 int colorTemperature = GetTargetColorTemperature(currentTime, configuration);
 
-                                await PerformDayNightCycling(hueClient, colorTemperature, currentTime, sunriseSunsetState, configuration);
+                                await PerformDayNightCycling(hueApi, colorTemperature, currentTime, sunriseSunsetState, configuration);
 
                                 var timeStartedWaiting = DateTimeOffset.Now;
                                 do
@@ -253,16 +244,16 @@ namespace HueShift
             return b1 + (s - a1) * (b2 - b1) / (a2 - a1);
         }
 
-        private static async Task PerformDayNightCycling(HueClient hueClient, int colorTemperature, DateTimeOffset currentTime, AppState appState, Configuration configuration)
+        private static async Task PerformDayNightCycling(LocalHueApi hueApi, int colorTemperature, DateTimeOffset currentTime, AppState appState, Configuration configuration)
         {
-            var allLights = await hueClient.GetLightsAsync();
-            var lights = allLights.ToList();
+            var allLights = await hueApi.Light.GetAllAsync();
+            var lights = allLights.Data;
 
-            var idToLights = allLights.ToDictionary(x => x.Id, x => x);
+            var idToLights = lights.ToDictionary(x => x.Id, x => x);
 
-            var nameToLights = allLights.ToDictionary(x => x.Name, x => x);
             var namesOfLightsToExclude = configuration.NamesOfLightsToExclude.ToHashSet();
-            var lightsAvailableToChange = allLights.Where(x => x.State.On && x.State.ColorTemperature != colorTemperature && !namesOfLightsToExclude.Contains(x.Name));
+
+            var lightsAvailableToChange = lights.Where(x => x.On.IsOn && x.ColorTemperature?.Mirek != colorTemperature && !namesOfLightsToExclude.Contains(x.Metadata?.Name));
 
             var lightsToChange = new List<Light>();
 
@@ -282,14 +273,14 @@ namespace HueShift
 
             if (shouldDoSlowTransitionAtSunriseOrSunset)
             {
-                Console.WriteLine($"{DateTime.Now}: all lights -> { colorTemperature }.  sunrise: {sunriseAndSunset.sunrise} sunset: {sunriseAndSunset.sunrise}");
+                Console.WriteLine($"{DateTime.Now}: all lights -> {colorTemperature}.  sunrise: {sunriseAndSunset.sunrise} sunset: {sunriseAndSunset.sunset}");
                 Console.WriteLine();
 
                 transitionTimeForBatch = configuration.TransitionTimeAtSunriseAndSunset;
                 foreach (var light in lights)
                 {
                     var state = appState.Lights[light.Id];
-                    if (!light.State.On)
+                    if (!light.On.IsOn)
                     {
                         state.LightControlState = LightControlState.Off;
                         state.HueShiftTookControlTime = DateTimeOffset.MinValue;
@@ -314,7 +305,7 @@ namespace HueShift
                 {
                     var state = appState.Lights[light.Id];
 
-                    if (!light.State.On)
+                    if (!light.On.IsOn)
                     {
                         state.LightControlState = LightControlState.Off;
                         state.HueShiftTookControlTime = DateTimeOffset.MinValue;
@@ -340,7 +331,7 @@ namespace HueShift
 
                                 bool hasTransitionTimeElapsed = transitionTimeElapsed > (state.RequestedTransitionDuration + allowedTolerance);
 
-                                if ((light.State.ColorTemperature == colorTemperature) || hasTransitionTimeElapsed)
+                                if ((light.ColorTemperature.Mirek == colorTemperature) || hasTransitionTimeElapsed)
                                 {
                                     state.LightControlState = LightControlState.HueShiftAutomated;
                                     state.TransitionRequestedTime = DateTimeOffset.MinValue;
@@ -348,7 +339,7 @@ namespace HueShift
                                 }
                                 break;
                             case LightControlState.HueShiftAutomated:
-                                if (light.State.ColorTemperature != colorTemperature)
+                                if (light.ColorTemperature?.Mirek != colorTemperature)
                                 {
                                     state.LightControlState = LightControlState.ManualControl;
                                 }
@@ -363,16 +354,31 @@ namespace HueShift
             appState.LastRunTime = currentTime;
             foreach (var onLight in lightsToChange)
             {
-                Console.WriteLine($"{DateTime.Now}: Light { onLight.Name } switching { onLight.State.ColorTemperature } -> { colorTemperature }");
+                Console.WriteLine($"{DateTime.Now}: Light {onLight.Metadata?.Name} switching {onLight.ColorTemperature?.Mirek} -> {colorTemperature}");
             }
 
             if (lightsToChange.Count > 0)
             {
-                var command = new LightCommand();
-                command.ColorTemperature = colorTemperature;
-                command.TransitionTime = transitionTimeForBatch;
 
-                await hueClient.SendCommandAsync(command, lightsToChange.Select(x => x.Id).ToList());
+                // var command = new LightCommand();
+                // command.ColorTemperature.Mirek = colorTemperature;
+                // command.TransitionTime = transitionTimeForBatch;
+
+                // await hueApi.SendCommandAsync(command, lightsToChange.Select(x => x.Id).ToList());
+
+                foreach (var light in lightsToChange)
+                {
+                    try
+                    {
+                        var up = new UpdateLight().SetColor(colorTemperature).SetDuration(transitionTimeForBatch);
+                        await hueApi.Light.UpdateAsync(light.Id, up);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error updating light {light.Metadata?.Name}: {ex.Message}");
+                    }
+                }
+                //await hueApi.Light.UpdateAsync() .SendCommandAsync(command, lightsToChange.Select(x => x.Id).ToList());
             }
         }
 
@@ -396,7 +402,7 @@ namespace HueShift
 
         private static (DateTimeOffset sunrise, DateTimeOffset sunset) GetSunriseAndSunset(DateTimeOffset currentTime, Configuration configuration)
         {
-            SolarTimes solarTimes = new SolarTimes(currentTime, configuration.PositionState.Latitude, configuration.PositionState.Longitude);
+            SolarTimes solarTimes = new(currentTime, configuration.PositionState.Latitude, configuration.PositionState.Longitude);
 
             //These are local DateTimes Kind: Unspecificied 
             var sunrise = ClampTime(solarTimes.Sunrise, configuration.SunriseMustBeAfter, configuration.SunriseMustBeBeBefore);
@@ -412,52 +418,52 @@ namespace HueShift
         }
     }
 
-    class ArtnetBridge
-    {
-        public static async Task<StreamingGroup> SetupAndReturnGroup(Configuration configuration)
-        {
-            //string ip = "192.168.0.4";
-            //string key = "8JwWAj5J1tSsKLxyUOdAkWmcCQFcNc51AKRhxdH9";
-            //string entertainmentKey = "AFFD322C34C993C19503D369481869FD";
-            //var useSimulator = false;
+    // class ArtnetBridge
+    // {
+    //     public static async Task<StreamingGroup> SetupAndReturnGroup(Configuration configuration)
+    //     {
+    //         //string ip = "192.168.0.4";
+    //         //string key = "8JwWAj5J1tSsKLxyUOdAkWmcCQFcNc51AKRhxdH9";
+    //         //string entertainmentKey = "AFFD322C34C993C19503D369481869FD";
+    //         //var useSimulator = false;
 
-            //string ip = "10.70.16.38";
-            //string key = "dpzXfw8NvafvCCvtLkQLUET-6Kc4jT4RovPg59Rx";
-            //string entertainmentKey = "260FE0B7251DF783CFB9FBAB1D1E8B0C";
-            //var useSimulator = false;
+    //         //string ip = "10.70.16.38";
+    //         //string key = "dpzXfw8NvafvCCvtLkQLUET-6Kc4jT4RovPg59Rx";
+    //         //string entertainmentKey = "260FE0B7251DF783CFB9FBAB1D1E8B0C";
+    //         //var useSimulator = false;
 
-            //string ip = "127.0.0.1";
-            //string key = "aSimulatedUser";
-            //string entertainmentKey = "01234567890123456789012345678901";
-            var useSimulator = true;
+    //         //string ip = "127.0.0.1";
+    //         //string key = "aSimulatedUser";
+    //         //string entertainmentKey = "01234567890123456789012345678901";
+    //         var useSimulator = true;
 
-            //Initialize streaming client
-            StreamingHueClient client = new StreamingHueClient(configuration.BridgeState.BridgeHostname, configuration.BridgeState.BridgeApiKey, configuration.BridgeState.BridgeEntertainmentClientKey);
+    //         //Initialize streaming client
+    //         StreamingHueClient client = new StreamingHueClient(configuration.BridgeState.BridgeHostname, configuration.BridgeState.BridgeApiKey, configuration.BridgeState.BridgeEntertainmentClientKey);
 
-            //Get the entertainment group
-            var all = await client.LocalHueClient.GetEntertainmentGroups();
-            var group = all.FirstOrDefault();
+    //         //Get the entertainment group
+    //         var all = await client.LocalHueClient.GetEntertainmentGroups();
+    //         var group = all.FirstOrDefault();
 
-            if (group == null)
-                throw new Exception("No Entertainment Group found. Create one using the Q42.HueApi.UniversalWindows.Sample");
-            else
-                Console.WriteLine($"Using Entertainment Group {group.Id}");
+    //         if (group == null)
+    //             throw new Exception("No Entertainment Group found. Create one using the Q42.HueApi.UniversalWindows.Sample");
+    //         else
+    //             Console.WriteLine($"Using Entertainment Group {group.Id}");
 
-            //Create a streaming group
-            var stream = new StreamingGroup(group.Locations);
-            stream.IsForSimulator = useSimulator;
+    //         //Create a streaming group
+    //         var stream = new StreamingGroup(group.Locations);
+    //         stream.IsForSimulator = useSimulator;
 
 
-            //Connect to the streaming group
-            await client.Connect(group.Id, simulator: useSimulator);
+    //         //Connect to the streaming group
+    //         await client.Connect(group.Id, simulator: useSimulator);
 
-            //Start auto updating this entertainment group
-            client.AutoUpdate(stream, new System.Threading.CancellationToken(), 50, onlySendDirtyStates: false);
+    //         //Start auto updating this entertainment group
+    //         client.AutoUpdate(stream, new System.Threading.CancellationToken(), 50, onlySendDirtyStates: false);
 
-            //Optional: Check if streaming is currently active
-            var bridgeInfo = await client.LocalHueClient.GetBridgeAsync();
-            Console.WriteLine(bridgeInfo.IsStreamingActive ? "Streaming is active" : "Streaming is not active");
-            return stream;
-        }
-    }
+    //         //Optional: Check if streaming is currently active
+    //         var bridgeInfo = await client.LocalHueClient.GetBridgeAsync();
+    //         Console.WriteLine(bridgeInfo.IsStreamingActive ? "Streaming is active" : "Streaming is not active");
+    //         return stream;
+    //     }
+    // }
 }

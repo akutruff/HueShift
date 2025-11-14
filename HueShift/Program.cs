@@ -11,27 +11,22 @@ using Newtonsoft.Json.Linq;
 using System.Threading;
 using Innovative.SolarCalculator;
 using McMaster.Extensions.CommandLineUtils;
-using Q42.HueApi.NET;
-using Q42.HueApi.Models.Bridge;
-using Q42.HueApi;
 using System.IO;
 using Newtonsoft.Json;
 using ArtDotNet;
 using System.Net;
 using System.Net.Sockets;
+using HueApi;
+using HueApi.BridgeLocator;
 
 namespace HueShift
 {
     public partial class Program
     {
-      
+
         public static int Main(string[] args)
         {
-            //Console.WriteLine(System.Environment.CurrentDirectory);
-            //RunArtnet();
-
             var app = new CommandLineApplication();
-            app.ValueParsers.Add(new TimeSpanParser());
 
             app.HelpOption("-h|--help");
 
@@ -64,218 +59,222 @@ namespace HueShift
             var dmxUniverse = app.Option<int>("-u|--dmx-universe <int>", "Dmx Universe.", CommandOptionType.SingleValue);
             var dmxStartingChannel = app.Option<int>("-c|--dmx-channel <int>", "DMX Channel.", CommandOptionType.SingleValue);
 
-            app.OnExecute(async () =>
-            {
-                Configuration configuration = new Configuration();
+            app.OnExecuteAsync(async cancellationToken =>
+               {
+                   Configuration configuration = new();
 
-                Console.WriteLine($"Timezone: {TimeZoneInfo.Local} <--- make sure this is right!!!");
+                   Console.WriteLine($"Timezone: {TimeZoneInfo.Local} <--- make sure this is right!!!");
 
-                if (discoverBridgesOption.HasValue())
-                {
-                    var locatedBridges = await DiscoverBridgesAsync(configuration);
+                   if (discoverBridgesOption.HasValue())
+                   {
+                       var locatedBridges = await DiscoverBridgesAsync(configuration);
 
-                    if (locatedBridges.Count == 0)
-                    {
-                        Console.WriteLine("No bridges found");
-                    }
+                       if (locatedBridges.Count == 0)
+                       {
+                           Console.WriteLine("No bridges found");
+                       }
 
-                    for (int i = 0; i < locatedBridges.Count; i++)
-                    {
-                        Console.WriteLine($"ID: {locatedBridges[i].BridgeId,-10} IP: {locatedBridges[i].IpAddress}");
-                    }
-                    return -1;
-                }
+                       for (int i = 0; i < locatedBridges.Count; i++)
+                       {
+                           Console.WriteLine($"ID: {locatedBridges[i].BridgeId,-10} IP: {locatedBridges[i].IpAddress}");
+                       }
+                       return -1;
+                   }
 
-                string configurationFilePath = configurationFilePathOption.HasValue() ? configurationFilePathOption.ParsedValue : @"hueShift-conf.json";
+                   string configurationFilePath = configurationFilePathOption.HasValue() ? configurationFilePathOption.ParsedValue : @"hueShift-conf.json";
 
-                if (resetOption.HasValue())
-                {
-                    File.Delete(configurationFilePath);
-                    return -1;
-                }
+                   if (resetOption.HasValue())
+                   {
+                       File.Delete(configurationFilePath);
+                       return -1;
+                   }
 
-                if (File.Exists(configurationFilePath))
-                {
-                    configuration = JsonConvert.DeserializeObject<Configuration>(File.ReadAllText(configurationFilePath));
-                }
+                   if (File.Exists(configurationFilePath))
+                   {
+                       configuration = JsonConvert.DeserializeObject<Configuration>(File.ReadAllText(configurationFilePath));
+                   }
 
-                if (latitudeOption.HasValue() ^ longitudeOption.HasValue())
-                    throw new Exception("When supplying latitude or longitude, you must supply both.  Only one of them was given.");
+                   if (latitudeOption.HasValue() ^ longitudeOption.HasValue())
+                       throw new Exception("When supplying latitude or longitude, you must supply both.  Only one of them was given.");
 
-                if (latitudeOption.HasValue())
-                {
-                    configuration.PositionState = new PositionState
-                    {
-                        Latitude = latitudeOption.ParsedValue,
-                        Longitude = longitudeOption.ParsedValue,
-                    };
-                }
+                   if (latitudeOption.HasValue())
+                   {
+                       configuration.PositionState = new PositionState
+                       {
+                           Latitude = latitudeOption.ParsedValue,
+                           Longitude = longitudeOption.ParsedValue,
+                       };
+                   }
+                   else
+                   {
+                       try
+                       {
+                           configuration.PositionState = new PositionState
+                           {
+                               Latitude = double.Parse(Environment.GetEnvironmentVariable("LATITUDE")),
+                               Longitude = double.Parse(Environment.GetEnvironmentVariable("LONGITUDE")),
+                           };
+                       }
+                       catch (Exception e)
+                       {
+                           throw new Exception("Failed to parse LATITUDE and LONGITUDE from environment variabbles.", e);
+                       }
+                   }
 
-                if (configuration.PositionState == null)
-                {
-                    try
-                    {
-                        configuration.PositionState = new PositionState();
-                        (configuration.PositionState.Latitude, configuration.PositionState.Longitude) = await Geolocation.GetLocationFromIPAddress(configuration);
-                        TrySaveConfiguration(doNotSaveConfigurationOption, configuration, configurationFilePath);
-                    }
-                    catch
-                    {
-                        Console.Write("Failed to get geolocation data for your ip address.  Please visit ipstack.com to get your latitude and longitude and rerun the program with --latitude and --longitude command line arguments or put them directly in the configuration file.");
-                        return -1;
-                    }
-                }
+                   if (configuration.PositionState != null)
+                   {
+                       Console.WriteLine($"Latitude: {configuration.PositionState.Latitude,-10} Logitude: {configuration.PositionState.Longitude,-10}");
+                   }
 
-                if (configuration.PositionState != null)
-                {
-                    Console.WriteLine($"Latitude: {configuration.PositionState.Latitude,-10} Logitude: {configuration.PositionState.Longitude,-10}");
-                }
+                   if (sunsetMustBeAfterOption.HasValue())
+                       configuration.SunsetMustBeAfter = sunsetMustBeAfterOption.ParsedValue;
 
-                if (sunsetMustBeAfterOption.HasValue())
-                    configuration.SunsetMustBeAfter = sunsetMustBeAfterOption.ParsedValue;
+                   if (sunsetMustBeBeforeOption.HasValue())
+                       configuration.SunsetMustBeBeBefore = sunsetMustBeBeforeOption.ParsedValue;
 
-                if (sunsetMustBeBeforeOption.HasValue())
-                    configuration.SunsetMustBeBeBefore = sunsetMustBeBeforeOption.ParsedValue;
+                   if (sunriseMustBeAfterOption.HasValue())
+                       configuration.SunriseMustBeAfter = sunriseMustBeAfterOption.ParsedValue;
 
-                if (sunriseMustBeAfterOption.HasValue())
-                    configuration.SunriseMustBeAfter = sunriseMustBeAfterOption.ParsedValue;
+                   if (sunriseMustBeBeforeOption.HasValue())
+                       configuration.SunriseMustBeBeBefore = sunriseMustBeBeforeOption.ParsedValue;
 
-                if (sunriseMustBeBeforeOption.HasValue())
-                    configuration.SunriseMustBeBeBefore = sunriseMustBeBeforeOption.ParsedValue;
+                   if (dayColorTemperatureOption.HasValue())
+                       configuration.DayColorTemperature = dayColorTemperatureOption.ParsedValue;
 
-                if (dayColorTemperatureOption.HasValue())
-                    configuration.DayColorTemperature = dayColorTemperatureOption.ParsedValue;
+                   if (nightColorTemperatureOption.HasValue())
+                       configuration.NightColorTemperature = nightColorTemperatureOption.ParsedValue;
 
-                if (nightColorTemperatureOption.HasValue())
-                    configuration.NightColorTemperature = nightColorTemperatureOption.ParsedValue;
+                   if (pollingFrequencyOption.HasValue())
+                       configuration.PollingFrequency = pollingFrequencyOption.ParsedValue;
 
-                if (pollingFrequencyOption.HasValue())
-                    configuration.PollingFrequency = pollingFrequencyOption.ParsedValue;
-
-                if (transitionTimeOption.HasValue())
-                    configuration.TransitionTime = transitionTimeOption.ParsedValue;
-
-
-                if (configuration.BridgeState == null)
-                {
-                    configuration.BridgeState = new BridgeState();
-                }
-
-                if (bridgeHostnameOption.HasValue())
-                    configuration.BridgeState.BridgeHostname = bridgeHostnameOption.ParsedValue;
-
-                if (string.IsNullOrEmpty(configuration.BridgeState.BridgeHostname))
-                {
-                    var locatedBridges = await DiscoverBridgesAsync(configuration);
-
-                    if (locatedBridges.Count == 0)
-                    {
-                        Console.WriteLine("No bridges discovered on your network.");
-                        return -1;
-                    }
-
-                    configuration.BridgeState.BridgeHostname = locatedBridges[0].IpAddress;
-                }
-
-                Console.WriteLine($"Bridge hostname: {configuration.BridgeState.BridgeHostname}");
-
-                LocalHueClient hueClient = new LocalHueClient(configuration.BridgeState.BridgeHostname);
-                if (string.IsNullOrEmpty(configuration.BridgeState.BridgeApiKey))
-                {
-                    bool hasSucceeded = false;
-                    for (int i = 0; i < 10 && !hasSucceeded; i++)
-                    {
-                        try
-                        {
-                            configuration.BridgeState.BridgeApiKey = await hueClient.RegisterAsync("HueShift", "Bridge0");
-                            hasSucceeded = true;
-                        }
-                        catch
-                        {
-                            Console.WriteLine("Failed to connect to Hue bridge!");
-                            Console.WriteLine();
-                        }
-
-                        if (!hasSucceeded)
-                        {
-                            const double secondsBeforeRetrying = 10.0;
-                            Console.WriteLine($"Failed to authorize. Make sure you pressed the button on the front of the Hue bridge. Trying again in {secondsBeforeRetrying}");
-                            await Task.Delay(TimeSpan.FromSeconds(secondsBeforeRetrying));
-                        }
-                    }
-
-                    if (!hasSucceeded)
-                    {
-                        Console.WriteLine("Bridge did not register! Rerun program and make sure you hit the button on the hue bridge.");
-                        Console.WriteLine("If things still aren't working, then run the program with the --reset argument to clear everything and start fresh.");
-                        Console.WriteLine("You can also manually put in the ip address of your bridge in your configuration file.");
-                        return -1;
-                    }
-                }
-                else
-                {
-                    hueClient.Initialize(configuration.BridgeState.BridgeApiKey);
-                }
-
-                if (string.IsNullOrEmpty(configuration.BridgeState.BridgeEntertainmentClientKey))
-                {
-                    //var registerEntertainmentResult = await hueClient.RegisterAsync("HueShift", "Bridge0", generateClientKey: true);
-                    //configuration.BridgeState.BridgeEntertainmentClientKey = registerEntertainmentResult.StreamingClientKey;
-                }
-
-                if (configuration.DMXConfiguration == null)
-                    configuration.DMXConfiguration = new DMXConfiguration();
-
-                if (configuration.DMXConfiguration.IsEnabled /*&& String.IsNullOrEmpty(configuration.DMXConfiguration.ListeningIPAddress)*/)
-                {
-                    string dmxListeningIPAddress;
-                    using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
-                    {
-                        socket.Connect("8.8.8.8", 65530);
-                        IPEndPoint endPoint = socket.LocalEndPoint as IPEndPoint;
-                        dmxListeningIPAddress = endPoint.Address.ToString();
-                    }
-
-                    Console.WriteLine($"Local IP for listenting for DMX: {dmxListeningIPAddress}");
-
-                    configuration.DMXConfiguration.ListeningIPAddress = dmxListeningIPAddress;
-                }
-
-                Console.WriteLine("Saving");
-
-                TrySaveConfiguration(doNotSaveConfigurationOption, configuration, configurationFilePath);
-                Console.WriteLine("Starting");
-
-                var allLights = await hueClient.GetLightsAsync();
-                var lights = allLights.ToList();
-                var idsToLights = allLights.ToDictionary(x => x.Id, x => x);
-                var idsOfLightsToExclude = configuration.NamesOfLightsToExclude.ToHashSet();
-
-                Console.WriteLine("All lights:");
-                foreach (var item in lights)
-                {
-                    Console.WriteLine($"ID: {item.Id,-4} Name: {item.Name, -20} ModelID: {item.ModelId, -10} ProductId: {item.ProductId,-10}");
-                }
-                Console.WriteLine("");
-
-                Console.WriteLine("Excluded Lights:");
-                foreach (var item in idsOfLightsToExclude)
-                {
-                    Console.WriteLine($"ID: {item,-4} Name: {idsToLights[item].Name,-20}");
-                }
-
-                //Console.WriteLine("DMX lights:");
-                //foreach (var item in lights)
-                //{
-                //    Console.WriteLine($"ID: {item.Id,-4} Name: {item.Name,-20} ModelID: {item.ModelId,-10} ProductId: {item.ProductId,-10}");
-                //}
-                //Console.WriteLine("");
+                   if (transitionTimeOption.HasValue())
+                       configuration.TransitionTime = transitionTimeOption.ParsedValue;
 
 
-                await LightScheduler.RunLightControl(configuration, hueClient);
+                   if (configuration.BridgeState == null)
+                   {
+                       configuration.BridgeState = new BridgeState();
+                   }
 
-                return -1;
-            });
+                   if (bridgeHostnameOption.HasValue())
+                       configuration.BridgeState.BridgeHostname = bridgeHostnameOption.ParsedValue;
+
+                   if (string.IsNullOrEmpty(configuration.BridgeState.BridgeHostname))
+                   {
+                       configuration.BridgeState.BridgeHostname = Environment.GetEnvironmentVariable("BRIDGE_HOSTNAME");
+                   }
+
+                   if (string.IsNullOrEmpty(configuration.BridgeState.BridgeHostname))
+                   {
+                       var locatedBridges = await DiscoverBridgesAsync(configuration);
+
+                       if (locatedBridges.Count == 0)
+                       {
+                           Console.WriteLine("No bridges discovered on your network.");
+                           return -1;
+                       }
+
+                       configuration.BridgeState.BridgeHostname = locatedBridges[0].IpAddress;
+                   }
+
+                   Console.WriteLine($"Bridge hostname: {configuration.BridgeState.BridgeHostname}");
+
+
+                   if (string.IsNullOrEmpty(configuration.BridgeState.BridgeApiKey))
+                   {
+                       bool hasSucceeded = false;
+                       for (int i = 0; i < 10 && !hasSucceeded; i++)
+                       {
+                           try
+                           {
+                               configuration.BridgeState.BridgeApiKey = (await LocalHueApi.RegisterAsync(configuration.BridgeState.BridgeHostname, "HueShift", "Bridge0")).Username;
+                               hasSucceeded = true;
+                           }
+                           catch (Exception e)
+                           {
+                               Console.WriteLine("Failed to connect to Hue bridge!" + e);
+                               Console.WriteLine();
+                           }
+
+                           if (!hasSucceeded)
+                           {
+                               const double secondsBeforeRetrying = 10.0;
+                               Console.WriteLine($"Failed to authorize. Make sure you pressed the button on the front of the Hue bridge. Trying again in {secondsBeforeRetrying}");
+                               await Task.Delay(TimeSpan.FromSeconds(secondsBeforeRetrying));
+                           }
+                       }
+
+                       if (!hasSucceeded)
+                       {
+                           Console.WriteLine("Bridge did not register! Rerun program and make sure you hit the button on the hue bridge.");
+                           Console.WriteLine("If things still aren't working, then run the program with the --reset argument to clear everything and start fresh.");
+                           Console.WriteLine("You can also manually put in the ip address of your bridge in your configuration file.");
+                           return -1;
+                       }
+                   }
+                   LocalHueApi hueApi = new LocalHueApi(configuration.BridgeState.BridgeHostname, configuration.BridgeState.BridgeApiKey);
+
+
+                   if (string.IsNullOrEmpty(configuration.BridgeState.BridgeEntertainmentClientKey))
+                   {
+                       //var registerEntertainmentResult = await hueClient.RegisterAsync("HueShift", "Bridge0", generateClientKey: true);
+                       //configuration.BridgeState.BridgeEntertainmentClientKey = registerEntertainmentResult.StreamingClientKey;
+                   }
+
+                   if (configuration.DMXConfiguration == null)
+                       configuration.DMXConfiguration = new DMXConfiguration();
+
+                   if (configuration.DMXConfiguration.IsEnabled /*&& String.IsNullOrEmpty(configuration.DMXConfiguration.ListeningIPAddress)*/)
+                   {
+                       string dmxListeningIPAddress;
+                       using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
+                       {
+                           socket.Connect("8.8.8.8", 65530);
+                           IPEndPoint endPoint = socket.LocalEndPoint as IPEndPoint;
+                           dmxListeningIPAddress = endPoint.Address.ToString();
+                       }
+
+                       Console.WriteLine($"Local IP for listenting for DMX: {dmxListeningIPAddress}");
+
+                       configuration.DMXConfiguration.ListeningIPAddress = dmxListeningIPAddress;
+                   }
+
+                   Console.WriteLine("Saving");
+
+                   TrySaveConfiguration(doNotSaveConfigurationOption, configuration, configurationFilePath);
+                   Console.WriteLine("Starting");
+
+                   var allLights = await hueApi.Light.GetAllAsync();
+                   var lights = allLights.Data;
+                   var idsToLights = lights.ToDictionary(x => x.Id, x => x);
+                   var idsOfLightsToExclude = configuration.NamesOfLightsToExclude.Select(x => new Guid(x)).ToHashSet();
+
+                   Console.WriteLine("All lights:");
+                   foreach (var item in lights)
+                   {
+                       // Console.WriteLine($"ID: {item.Id,-4} Name: {item.Name,-20} ModelID: {item.ModelId,-10} ProductId: {item.ProductId,-10}");
+                       Console.WriteLine($"ID: {item.Id,-4} Name: {item.Metadata.Name,-20} ModelID: {item.Metadata.Archetype,-10} ProductId: {item.ProductData.Function,-10}");
+                   }
+                   Console.WriteLine("");
+
+                   Console.WriteLine("Excluded Lights:");
+                   foreach (var item in idsOfLightsToExclude)
+                   {
+                       Console.WriteLine($"ID: {item,-4} Name: {idsToLights[item].Id,-20}");
+                   }
+
+                   //Console.WriteLine("DMX lights:");
+                   //foreach (var item in lights)
+                   //{
+                   //    Console.WriteLine($"ID: {item.Id,-4} Name: {item.Name,-20} ModelID: {item.ModelId,-10} ProductId: {item.ProductId,-10}");
+                   //}
+                   //Console.WriteLine("");
+
+
+                   await LightScheduler.RunLightControl(configuration, hueApi);
+
+                   return -1;
+               });
 
             return app.Execute(args);
         }

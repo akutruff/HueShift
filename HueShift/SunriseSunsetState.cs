@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Q42.HueApi;
 
 namespace HueShift
 {
@@ -9,6 +8,6 @@ namespace HueShift
         public DateTimeOffset LastRunTime = DateTimeOffset.MinValue;
         public DateTimeOffset LastRequestedSlowTransitionTime = DateTimeOffset.MinValue;
 
-        public Dictionary<string, LightControlStatus> Lights { get; } = new Dictionary<string, LightControlStatus>();
+        public Dictionary<Guid, LightControlStatus> Lights { get; } = new Dictionary<Guid, LightControlStatus>();
     }
 }
